@@ -1,8 +1,56 @@
 import 'package:flutter/material.dart';
-import '../auth_service.dart';
+import '../services/auth_service.dart';
+import 'finances_page.dart';
+import 'health_page.dart';
+import '../theme/app_palette.dart';
+import 'widgets/profile_action_button.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  int _currentIndex = 1; // Start with Home (middle tab)
+
+  final List<Widget> _pages = const [
+    FinancesPage(),
+    _HomeTab(),
+    HealthPage(),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: _pages[_currentIndex],
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        onTap: (index) {
+          setState(() => _currentIndex = index);
+        },
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.attach_money),
+            label: 'Finances',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.favorite),
+            label: 'Health',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HomeTab extends StatelessWidget {
+  const _HomeTab();
 
   @override
   Widget build(BuildContext context) {
@@ -23,12 +71,8 @@ class HomePage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Home'),
-        actions: [
-          IconButton(
-            onPressed: signOut,
-            icon: const Icon(Icons.logout),
-            tooltip: 'Atsijungti',
-          ),
+        actions: const [
+          ProfileActionButton(),
         ],
       ),
       body: Center(
@@ -44,8 +88,7 @@ class HomePage extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 email.isNotEmpty ? 'Prisijungta: $email' : 'Prisijungta',
-                style: const TextStyle(color: Colors.black54),
-              ),
+                style: TextStyle(color: AppPalette.secondaryText(context)),              ),
               const SizedBox(height: 16),
               ElevatedButton.icon(
                 onPressed: signOut,
