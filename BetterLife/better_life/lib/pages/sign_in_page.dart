@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
-import '../auth_service.dart';
+import '../services/auth_service.dart';
 import 'sign_up_page.dart';
+import '../theme/app_palette.dart';
+import 'widgets/profile_action_button.dart';
 
 class SignInPage extends StatefulWidget {
   const SignInPage({super.key});
@@ -90,6 +91,27 @@ class _SignInPageState extends State<SignInPage> {
     }
   }
 
+  /// Quick dev login - TEMPORARY for development
+  Future<void> _devLogin() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      await _auth.devLogin();
+      if (mounted) {
+        Navigator.of(context).popUntil((r) => r.isFirst);
+      }
+    } on FirebaseAuthException catch (e) {
+      setState(() => _error = _friendlyAuthError(e));
+    } catch (_) {
+      setState(() => _error = 'Dev login failed');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   /// Opens a dialog where the user can request a password reset email.
   ///
   /// The dialog manages its own internal state. When it returns `true`, a
@@ -132,10 +154,10 @@ class _SignInPageState extends State<SignInPage> {
                     style: TextStyle(fontSize: 32, fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 10),
-                  const Text(
+                  Text(
                     'Prisijunk su el. paštu',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.black54),
+                    style: TextStyle(color: AppPalette.secondaryText(context)),
                   ),
                   const SizedBox(height: 24),
 
@@ -207,6 +229,22 @@ class _SignInPageState extends State<SignInPage> {
                   ),
 
                   const SizedBox(height: 6),
+                  // DEV LOGIN BUTTON - Remove this button before production
+                  OutlinedButton(
+                    onPressed: _isLoading ? null : _devLogin,
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      side: BorderSide(
+                        color: Colors.orange,
+                        width: 2,
+                      ),
+                    ),
+                    child: const Text(
+                      'Dev Login (dev@test.com)',
+                      style: TextStyle(color: Colors.orange),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   ElevatedButton(
                     onPressed: _isLoading ? null : _signIn,
                     style: ElevatedButton.styleFrom(

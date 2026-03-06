@@ -1,5 +1,9 @@
 import 'package:firebase_auth/firebase_auth.dart';
 
+/// TEMPORARY DEV CREDENTIALS - Remove or disable in production
+const _devEmail = 'dev@test.com';
+const _devPassword = 'dev123456';
+
 class AuthService {
   AuthService({FirebaseAuth? auth}) : _auth = auth ?? FirebaseAuth.instance;
 
@@ -43,4 +47,10 @@ class AuthService {
   }
 
   Future<void> signOut() => _auth.signOut();
+
+  /// Quick dev login - TEMPORARY FEATURE for development only
+  /// Remove this method and the dev credentials before production
+  Future<UserCredential> devLogin() {
+    return signIn(email: _devEmail, password: _devPassword);
+  }
 }
