@@ -4,7 +4,6 @@ import 'package:intl/intl.dart';
 
 import '../../services/auth_service.dart';
 import '../../theme/app_palette.dart';
-import '../../theme/theme_controller.dart';
 
 class ProfileActionButton extends StatelessWidget {
   const ProfileActionButton({super.key});
@@ -129,59 +128,6 @@ Future<void> showProfileSheet(BuildContext context) async {
                           value: lastSignIn != null
                               ? DateFormat('yyyy-MM-dd HH:mm').format(lastSignIn)
                               : '—',
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    _SectionCard(
-                      title: 'Nustatymai',
-                      children: [
-                        AnimatedBuilder(
-                          animation: themeController,
-                          builder: (_, __) {
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Išvaizda',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    color: text,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                SegmentedButton<ThemeMode>(
-                                  segments: const [
-                                    ButtonSegment<ThemeMode>(
-                                      value: ThemeMode.light,
-                                      icon: Icon(Icons.light_mode_rounded),
-                                      label: Text('Light'),
-                                    ),
-                                    ButtonSegment<ThemeMode>(
-                                      value: ThemeMode.dark,
-                                      icon: Icon(Icons.dark_mode_rounded),
-                                      label: Text('Dark'),
-                                    ),
-                                  ],
-                                  selected: {themeController.themeMode},
-                                  onSelectionChanged: (selection) {
-                                    themeController.setThemeMode(selection.first);
-                                  },
-                                  style: ButtonStyle(
-                                    backgroundColor:
-                                        MaterialStateProperty.resolveWith<Color?>(
-                                      (states) {
-                                        if (states.contains(MaterialState.selected)) {
-                                          return AppPalette.accentGreen.withOpacity(.15);
-                                        }
-                                        return null;
-                                      },
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            );
-                          },
                         ),
                       ],
                     ),
