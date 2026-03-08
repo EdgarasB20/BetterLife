@@ -9,14 +9,6 @@ import '../theme/app_palette.dart';
 import 'widgets/add_expense_sheet.dart';
 import 'widgets/profile_action_button.dart';
 
-enum ExpenseSort {
-  newest,
-  oldest,
-  highest,
-  lowest,
-  category,
-}
-
 class ExpensesPage extends StatefulWidget {
   const ExpensesPage({super.key});
 
@@ -28,8 +20,6 @@ class _ExpensesPageState extends State<ExpensesPage> {
   final ExpenseService _expenseService = ExpenseService();
 
   DateTime _selectedMonth = DateTime.now();
-  ExpenseCategory? _selectedCategory;
-  ExpenseSort _sort = ExpenseSort.newest;
 
   String get _uid => FirebaseAuth.instance.currentUser!.uid;
 
@@ -274,28 +264,6 @@ class _ExpensesPageState extends State<ExpensesPage> {
   List<Expense> _processExpenses(List<Expense> expenses) {
     var list = expenses.toList();
 
-    if (_selectedCategory != null) {
-      list = list.where((e) => e.category == _selectedCategory).toList();
-    }
-
-    switch (_sort) {
-      case ExpenseSort.newest:
-        list.sort((a, b) => b.date.compareTo(a.date));
-        break;
-      case ExpenseSort.oldest:
-        list.sort((a, b) => a.date.compareTo(b.date));
-        break;
-      case ExpenseSort.highest:
-        list.sort((a, b) => b.amount.compareTo(a.amount));
-        break;
-      case ExpenseSort.lowest:
-        list.sort((a, b) => a.amount.compareTo(b.amount));
-        break;
-      case ExpenseSort.category:
-        list.sort((a, b) => a.category.label.compareTo(b.category.label));
-        break;
-    }
-
     return list;
   }
 
@@ -325,33 +293,6 @@ class _ExpensesPageState extends State<ExpensesPage> {
         elevation: 0,
         title: const Text('Išlaidos'),
         actions: [
-          PopupMenuButton<ExpenseSort>(
-            color: surface,
-            initialValue: _sort,
-            onSelected: (value) => setState(() => _sort = value),
-            itemBuilder: (_) => const [
-              PopupMenuItem(
-                value: ExpenseSort.newest,
-                child: Text('Naujausios viršuje'),
-              ),
-              PopupMenuItem(
-                value: ExpenseSort.oldest,
-                child: Text('Seniausios viršuje'),
-              ),
-              PopupMenuItem(
-                value: ExpenseSort.highest,
-                child: Text('Didžiausios sumos'),
-              ),
-              PopupMenuItem(
-                value: ExpenseSort.lowest,
-                child: Text('Mažiausios sumos'),
-              ),
-              PopupMenuItem(
-                value: ExpenseSort.category,
-                child: Text('Pagal kategoriją'),
-              ),
-            ],
-          ),
           const ProfileActionButton(),
         ],
       ),
@@ -369,10 +310,6 @@ class _ExpensesPageState extends State<ExpensesPage> {
           final expenses = _processExpenses(rawExpenses);
 
           final total = expenses.fold<double>(0, (sum, e) => sum + e.amount);
-          final biggest = expenses.isEmpty
-              ? 0.0
-              : expenses.map((e) => e.amount).reduce((a, b) => a > b ? a : b);
-          final average = expenses.isEmpty ? 0.0 : total / expenses.length;
 
           final Map<ExpenseCategory, double> grouped = {};
           for (final expense in expenses) {
@@ -526,71 +463,6 @@ class _ExpensesPageState extends State<ExpensesPage> {
                 ),
               ),
               const SizedBox(height: 16),
-              Row(
-                children: [
-                  _StatCard(
-                    title: 'Įrašai',
-                    value: '${expenses.length}',
-                    icon: Icons.receipt_long_rounded,
-                    color: Colors.deepPurple.shade300,
-                  ),
-                  const SizedBox(width: 12),
-                  _StatCard(
-                    title: 'Vidurkis',
-                    value: '€${average.toStringAsFixed(2)}',
-                    icon: Icons.analytics_rounded,
-                    color: AppPalette.accentGreen,
-                  ),
-                  const SizedBox(width: 12),
-                  _StatCard(
-                    title: 'Didžiausia',
-                    value: '€${biggest.toStringAsFixed(2)}',
-                    icon: Icons.trending_up_rounded,
-                    color: Colors.orange.shade400,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                height: 46,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ChoiceChip(
-                        selected: _selectedCategory == null,
-                        label: const Text('Visos'),
-                        selectedColor: AppPalette.accentGreen.withOpacity(.18),
-                        backgroundColor: surface,
-                        shape: StadiumBorder(side: BorderSide(color: border)),
-                        onSelected: (_) {
-                          setState(() => _selectedCategory = null);
-                        },
-                      ),
-                    ),
-                    ...ExpenseCategory.values.map((category) {
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: ChoiceChip(
-                          selected: _selectedCategory == category,
-                          label: Text(category.shortLabel),
-                          selectedColor: category.color.withOpacity(.18),
-                          backgroundColor: surface,
-                          shape: StadiumBorder(side: BorderSide(color: border)),
-                          onSelected: (_) {
-                            setState(() {
-                              _selectedCategory =
-                                  _selectedCategory == category ? null : category;
-                            });
-                          },
-                        ),
-                      );
-                    }),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
               if (snapshot.connectionState == ConnectionState.waiting && rawExpenses.isEmpty)
                 const Center(child: CircularProgressIndicator())
               else if (expenses.isEmpty)
@@ -701,6 +573,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
   }
 }
 
+/*
 class _StatCard extends StatelessWidget {
   final String title;
   final String value;
@@ -749,6 +622,7 @@ class _StatCard extends StatelessWidget {
     );
   }
 }
+*/
 
 class _DetailRow extends StatelessWidget {
   final IconData icon;
