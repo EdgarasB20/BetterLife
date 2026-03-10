@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 import '../models/expense.dart';
 import '../services/expense_service.dart';
 import '../theme/app_palette.dart';
+import 'budget_page.dart';
 import 'expenses_page.dart';
 import 'widgets/add_expense_sheet.dart';
 import 'widgets/profile_action_button.dart';
-import 'budget_page.dart';
 
 class FinancesPage extends StatelessWidget {
   const FinancesPage({super.key});
@@ -96,14 +96,14 @@ class FinancesPage extends StatelessWidget {
                         style: TextStyle(color: text),
                       ),
                       subtitle: Text(
-                        'Padarysim kitame etape',
+                        'TBD',
                         style: TextStyle(color: subtext),
                       ),
                       onTap: () {
                         Navigator.pop(context);
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Pajamų modulis bus kitame etape'),
+                            content: Text('TBD'),
                           ),
                         );
                       },
@@ -121,14 +121,14 @@ class FinancesPage extends StatelessWidget {
                         style: TextStyle(color: text),
                       ),
                       subtitle: Text(
-                        'Padarysim vėliau',
+                        'TBD',
                         style: TextStyle(color: subtext),
                       ),
                       onTap: () {
                         Navigator.pop(context);
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Tikslų modulis bus vėliau'),
+                            content: Text('TBD'),
                           ),
                         );
                       },
@@ -164,7 +164,6 @@ class FinancesPage extends StatelessWidget {
         builder: (context, snapshot) {
           final expenses = snapshot.data ?? [];
           final totalExpenses = expenses.fold<double>(0, (sum, e) => sum + e.amount);
-          final recent = expenses.take(3).toList();
 
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
@@ -225,7 +224,7 @@ class FinancesPage extends StatelessWidget {
                   _FinanceCard(
                     title: 'Pajamos',
                     value: '—',
-                    subtitle: 'Kitas etapas',
+                    subtitle: 'TBD',
                     icon: Icons.trending_up_rounded,
                     accent: AppPalette.accentPurple,
                     onTap: () {},
@@ -248,7 +247,7 @@ class FinancesPage extends StatelessWidget {
                   _FinanceCard(
                     title: 'Tikslai',
                     value: '—',
-                    subtitle: 'Kitas etapas',
+                    subtitle: 'TBD',
                     icon: Icons.flag_rounded,
                     accent: AppPalette.accentTeal,
                     onTap: () {},
@@ -256,95 +255,6 @@ class FinancesPage extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 18),
-              Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: surface,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: border),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          'Naujausios išlaidos',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: text,
-                          ),
-                        ),
-                        const Spacer(),
-                        TextButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const ExpensesPage(),
-                              ),
-                            );
-                          },
-                          child: const Text('Atidaryti'),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    if (snapshot.connectionState == ConnectionState.waiting &&
-                        expenses.isEmpty)
-                      const Center(child: CircularProgressIndicator())
-                    else if (recent.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 18),
-                        child: Center(
-                          child: Text(
-                            'Kol kas nėra išlaidų įrašų',
-                            style: TextStyle(color: subtext),
-                          ),
-                        ),
-                      )
-                    else
-                      ...recent.map(
-                        (expense) => Container(
-                          margin: const EdgeInsets.only(bottom: 10),
-                          decoration: BoxDecoration(
-                            color: surface,
-                            borderRadius: BorderRadius.circular(18),
-                            border: Border.all(color: border),
-                          ),
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 4,
-                            ),
-                            leading: CircleAvatar(
-                              backgroundColor: expense.category.color.withOpacity(.15),
-                              child: Text(expense.category.emoji),
-                            ),
-                            title: Text(
-                              expense.note.isEmpty
-                                  ? expense.category.label
-                                  : expense.note,
-                              style: TextStyle(color: text),
-                            ),
-                            subtitle: Text(
-                              expense.category.shortLabel,
-                              style: TextStyle(color: subtext),
-                            ),
-                            trailing: Text(
-                              '-€${expense.amount.toStringAsFixed(2)}',
-                              style: const TextStyle(
-                                color: AppPalette.accentGreen,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
             ],
           );
         },
