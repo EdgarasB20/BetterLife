@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../models/expense.dart';
 import '../services/expense_service.dart';
 import '../theme/app_palette.dart';
+import 'budget_page.dart';
 import 'expenses_page.dart';
 import 'widgets/add_expense_sheet.dart';
 import 'widgets/profile_action_button.dart';
@@ -230,11 +231,18 @@ class FinancesPage extends StatelessWidget {
                   ),
                   _FinanceCard(
                     title: 'Biudžetas',
-                    value: '—',
-                    subtitle: 'TBD',
+                    value: 'Atidaryti',
+                    subtitle: 'Mėnesio limitai',
                     icon: Icons.account_balance_wallet_rounded,
                     accent: Colors.orange.shade400,
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                      builder: (_) => const BudgetPage(),
+                      ),
+                      );
+                    },
                   ),
                   _FinanceCard(
                     title: 'Tikslai',
