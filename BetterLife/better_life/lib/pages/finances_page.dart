@@ -1,3 +1,4 @@
+import 'package:better_life/pages/income_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -28,7 +29,7 @@ class FinancesPage extends StatelessWidget {
     final month = DateTime.now();
     final background = AppPalette.background(context);
     final surface = AppPalette.surface(context);
-    final border = AppPalette.border(context);
+    //final border = AppPalette.border(context);
     final text = AppPalette.primaryText(context);
     final subtext = AppPalette.secondaryText(context);
 
@@ -223,11 +224,18 @@ class FinancesPage extends StatelessWidget {
                   ),
                   _FinanceCard(
                     title: 'Pajamos',
-                    value: '—',
+                    value: 'Atidaryti',
                     subtitle: 'TBD',
                     icon: Icons.trending_up_rounded,
                     accent: AppPalette.accentPurple,
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                      builder: (_) => const IncomePage(),
+                      ),
+                      );
+                    },
                   ),
                   _FinanceCard(
                     title: 'Biudžetas',
