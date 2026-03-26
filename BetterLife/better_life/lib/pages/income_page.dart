@@ -1,9 +1,9 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../models/income.dart';
-// import 'package:firebase_auth/firebase_auth.dart';
-// import '../services/income_service.dart';
+import '../services/income_service.dart';
 import '../theme/app_palette.dart';
 import 'widgets/add_income_sheet.dart';
 import 'widgets/profile_action_button.dart';
@@ -16,11 +16,11 @@ class IncomePage extends StatefulWidget {
 }
 
 class _IncomePageState extends State<IncomePage> {
-  // final IncomeService _incomeService = IncomeService();
-  // String get _uid => FirebaseAuth.instance.currentUser!.uid;
-  
-  // Lokalus saugojimas - duomenų sąrašas atmintyje
-  List<Income> _incomes = [];
+  final IncomeService _incomeService = IncomeService();
+  String get _uid => FirebaseAuth.instance.currentUser!.uid;
+
+  Stream<List<Income>> get _incomeStream => _incomeService.watchAllIncomes(_uid);
+
 
   Future<void> _openAddIncome() async {
     await showModalBottomSheet(
@@ -29,11 +29,8 @@ class _IncomePageState extends State<IncomePage> {
       backgroundColor: Colors.transparent,
       builder: (_) {
         return AddIncomeSheet(
-          onSave: (income) async {
-            // await _incomeService.addIncome(_uid, income);
-            setState(() {
-              _incomes.add(income);
-            });
+          onSave: (income) async {  
+            await _incomeService.addIncome(_uid, income);
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Pajama pridėta')),
@@ -54,13 +51,7 @@ class _IncomePageState extends State<IncomePage> {
         return AddIncomeSheet(
           initialIncome: income,
           onSave: (updatedIncome) async {
-            // await _incomeService.updateIncome(_uid, income.id, updatedIncome);
-            setState(() {
-              final index = _incomes.indexWhere((e) => e.id == income.id);
-              if (index != -1) {
-                _incomes[index] = updatedIncome;
-              }
-            });
+            await _incomeService.updateIncome(_uid, income.id, updatedIncome);
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Pajama atnaujinta')),
@@ -73,10 +64,7 @@ class _IncomePageState extends State<IncomePage> {
   }
 
   Future<void> _deleteIncome(String incomeId) async {
-    // await _incomeService.deleteIncome(_uid, incomeId);
-    setState(() {
-      _incomes.removeWhere((income) => income.id == incomeId);
-    });
+    await _incomeService.deleteIncome(_uid, incomeId);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Pajama ištrinta')),
@@ -156,37 +144,57 @@ class _IncomePageState extends State<IncomePage> {
         icon: const Icon(Icons.add_rounded),
         label: const Text('Pridėti'),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-        children: [
-          if (_incomes.isEmpty)
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: surface,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: border),
-              ),
-              child: Column(
-                children: [
-                  Icon(Icons.inbox_rounded, size: 54, color: subtext),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Nėra pajamų',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: text, fontSize: 18),
+      body: StreamBuilder<List<Income>>(
+        stream: _incomeStream,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError) {
+            return Center(
+              child: Text('Įvyko klaida: ${snapshot.error}'),
+            );
+          }
+
+          final incomes = snapshot.data ?? [];
+
+          if (incomes.isEmpty) {
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: surface,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: border),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Pridėk savo pirmą pajamą',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: subtext),
+                  child: Column(
+                    children: [
+                      Icon(Icons.inbox_rounded, size: 54, color: subtext),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Nėra pajamų',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: text, fontSize: 18),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Pridėk savo pirmą pajamą',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: subtext),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            )
-          else
-            ..._incomes.map((income) {
+                ),
+              ],
+            );
+          }
+
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+            children: incomes.map((income) {
               return Container(
                 margin: const EdgeInsets.only(bottom: 12),
                 decoration: BoxDecoration(
@@ -213,19 +221,19 @@ class _IncomePageState extends State<IncomePage> {
                       color: text,
                     ),
                   ),
-                    subtitle: Column(
+                  subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                      income.note,
-                      style: TextStyle(color: subtext),
+                        income.note,
+                        style: TextStyle(color: subtext),
                       ),
                       Text(
-                      DateFormat('dd.MM.yyyy').format(income.date),
-                      style: TextStyle(color: subtext),
+                        DateFormat('dd.MM.yyyy').format(income.date),
+                        style: TextStyle(color: subtext),
                       ),
                     ],
-                    ),
+                  ),
                   trailing: PopupMenuButton<String>(
                     color: surface,
                     onSelected: (value) async {
@@ -256,8 +264,9 @@ class _IncomePageState extends State<IncomePage> {
                   ),
                 ),
               );
-            }),
-        ],
+            }).toList(),
+          );
+        },
       ),
     );
   }
