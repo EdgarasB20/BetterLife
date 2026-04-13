@@ -1,9 +1,13 @@
+import 'package:better_life/pages/income_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../models/expense.dart';
+import '../models/income.dart';
 import '../services/expense_service.dart';
+import '../services/income_service.dart';
 import '../theme/app_palette.dart';
+import 'budget_page.dart';
 import 'expenses_page.dart';
 import 'widgets/add_expense_sheet.dart';
 import 'widgets/profile_action_button.dart';
@@ -15,6 +19,7 @@ class FinancesPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
     final expenseService = ExpenseService();
+    final incomeService = IncomeService();
 
     if (user == null) {
       return const Scaffold(
@@ -27,7 +32,7 @@ class FinancesPage extends StatelessWidget {
     final month = DateTime.now();
     final background = AppPalette.background(context);
     final surface = AppPalette.surface(context);
-    final border = AppPalette.border(context);
+    //final border = AppPalette.border(context);
     final text = AppPalette.primaryText(context);
     final subtext = AppPalette.secondaryText(context);
 
@@ -160,94 +165,116 @@ class FinancesPage extends StatelessWidget {
       ),
       body: StreamBuilder<List<Expense>>(
         stream: expenseService.watchMonthlyExpenses(user.uid, month),
-        builder: (context, snapshot) {
-          final expenses = snapshot.data ?? [];
+        builder: (context, expenseSnapshot) {
+          final expenses = expenseSnapshot.data ?? [];
           final totalExpenses = expenses.fold<double>(0, (sum, e) => sum + e.amount);
 
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-            children: [
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(28),
-                  gradient: AppPalette.heroGradient,
-                ),
-                child: const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Finansų suvestinė',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 14,
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Viena vieta biudžetui,\npajamoms ir išlaidoms',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w800,
-                        height: 1.15,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 18),
-              GridView.count(
-                crossAxisCount: 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                childAspectRatio: 1.18,
+          return StreamBuilder<List<Income>>(
+            stream: incomeService.watchMonthlyIncomes(user.uid, month),
+            builder: (context, incomeSnapshot) {
+              final incomes = incomeSnapshot.data ?? [];
+              final totalIncomes = incomes.fold<double>(0, (sum, i) => sum + i.amount);
+
+              return ListView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
                 children: [
-                  _FinanceCard(
-                    title: 'Išlaidos',
-                    value: '€${totalExpenses.toStringAsFixed(2)}',
-                    subtitle: 'Šį mėnesį',
-                    icon: Icons.pie_chart_rounded,
-                    accent: AppPalette.accentGreen,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const ExpensesPage(),
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(28),
+                      gradient: AppPalette.heroGradient,
+                    ),
+                    child: const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Finansų suvestinė',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 14,
+                          ),
                         ),
-                      );
-                    },
+                        SizedBox(height: 8),
+                        Text(
+                          'Viena vieta biudžetui,\npajamoms ir išlaidoms',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w800,
+                            height: 1.15,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  _FinanceCard(
-                    title: 'Pajamos',
-                    value: '—',
-                    subtitle: 'TBD',
-                    icon: Icons.trending_up_rounded,
-                    accent: AppPalette.accentPurple,
-                    onTap: () {},
+                  const SizedBox(height: 18),
+                  GridView.count(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    childAspectRatio: 1.18,
+                    children: [
+                      _FinanceCard(
+                        title: 'Išlaidos',
+                        value: '€${totalExpenses.toStringAsFixed(2)}',
+                        subtitle: 'Šį mėnesį',
+                        icon: Icons.pie_chart_rounded,
+                        accent: AppPalette.accentGreen,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const ExpensesPage(),
+                            ),
+                          );
+                        },
+                      ),
+                      _FinanceCard(
+                        title: 'Pajamos',
+                        value: '€${totalIncomes.toStringAsFixed(2)}',
+                        subtitle: 'Šį mėnesį',
+                        icon: Icons.trending_up_rounded,
+                        accent: AppPalette.accentPurple,
+                        onTap: () {
+                          Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                          builder: (_) => const IncomePage(),
+                          ),
+                          );
+                        },
+                      ),
+                      _FinanceCard(
+                        title: 'Biudžetas',
+                        value: 'Atidaryti',
+                        subtitle: 'Mėnesio limitai',
+                        icon: Icons.account_balance_wallet_rounded,
+                        accent: Colors.orange.shade400,
+                        onTap: () {
+                          Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                          builder: (_) => const BudgetPage(),
+                          ),
+                          );
+                        },
+                      ),
+                      _FinanceCard(
+                        title: 'Tikslai',
+                        value: '—',
+                        subtitle: 'TBD',
+                        icon: Icons.flag_rounded,
+                        accent: AppPalette.accentTeal,
+                        onTap: () {},
+                      ),
+                    ],
                   ),
-                  _FinanceCard(
-                    title: 'Biudžetas',
-                    value: '—',
-                    subtitle: 'TBD',
-                    icon: Icons.account_balance_wallet_rounded,
-                    accent: Colors.orange.shade400,
-                    onTap: () {},
-                  ),
-                  _FinanceCard(
-                    title: 'Tikslai',
-                    value: '—',
-                    subtitle: 'TBD',
-                    icon: Icons.flag_rounded,
-                    accent: AppPalette.accentTeal,
-                    onTap: () {},
-                  ),
+                  const SizedBox(height: 18),
                 ],
-              ),
-              const SizedBox(height: 18),
-            ],
+              );
+            },
           );
         },
       ),

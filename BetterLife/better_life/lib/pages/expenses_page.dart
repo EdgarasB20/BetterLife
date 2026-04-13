@@ -9,6 +9,41 @@ import '../theme/app_palette.dart';
 import 'widgets/add_expense_sheet.dart';
 import 'widgets/profile_action_button.dart';
 
+enum _ExpenseSortCriterion {
+  date,
+  amount,
+  category,
+}
+
+enum _ExpenseSortDirection {
+  ascending,
+  descending,
+}
+
+extension _ExpenseSortCriterionX on _ExpenseSortCriterion {
+  String get label {
+    switch (this) {
+      case _ExpenseSortCriterion.date:
+        return 'Data';
+      case _ExpenseSortCriterion.amount:
+        return 'Suma';
+      case _ExpenseSortCriterion.category:
+        return 'Kategorija';
+    }
+  }
+}
+
+extension _ExpenseSortDirectionX on _ExpenseSortDirection {
+  String get label {
+    switch (this) {
+      case _ExpenseSortDirection.ascending:
+        return 'Didėjančiai';
+      case _ExpenseSortDirection.descending:
+        return 'Mažėjančiai';
+    }
+  }
+}
+
 class ExpensesPage extends StatefulWidget {
   const ExpensesPage({super.key});
 
@@ -20,6 +55,9 @@ class _ExpensesPageState extends State<ExpensesPage> {
   final ExpenseService _expenseService = ExpenseService();
 
   DateTime _selectedMonth = DateTime.now();
+  final Set<ExpenseCategory> _selectedCategoryFilters = {};
+  _ExpenseSortCriterion _sortCriterion = _ExpenseSortCriterion.date;
+  _ExpenseSortDirection _sortDirection = _ExpenseSortDirection.descending;
 
   String get _uid => FirebaseAuth.instance.currentUser!.uid;
 
@@ -262,7 +300,28 @@ class _ExpensesPageState extends State<ExpensesPage> {
   }
 
   List<Expense> _processExpenses(List<Expense> expenses) {
-    var list = expenses.toList();
+    final list = expenses.where((expense) {
+      if (_selectedCategoryFilters.isEmpty) {
+        return true;
+      }
+
+      return _selectedCategoryFilters.contains(expense.category);
+    }).toList();
+
+    list.sort((a, b) {
+      final comparison = switch (_sortCriterion) {
+        _ExpenseSortCriterion.date => a.date.compareTo(b.date),
+        _ExpenseSortCriterion.amount => a.amount.compareTo(b.amount),
+        _ExpenseSortCriterion.category =>
+          a.category.label.compareTo(b.category.label),
+      };
+
+      if (_sortDirection == _ExpenseSortDirection.ascending) {
+        return comparison;
+      }
+
+      return -comparison;
+    });
 
     return list;
   }
@@ -386,7 +445,9 @@ class _ExpensesPageState extends State<ExpensesPage> {
                       child: expenses.isEmpty
                           ? Center(
                               child: Text(
-                                'Šį mėnesį išlaidų dar nėra',
+                                rawExpenses.isEmpty
+                                    ? 'Šį mėnesį išlaidų dar nėra'
+                                    : 'Pagal pasirinktą filtrą išlaidų nėra',
                                 style: TextStyle(color: subtext),
                               ),
                             )
@@ -463,6 +524,78 @@ class _ExpensesPageState extends State<ExpensesPage> {
                 ),
               ),
               const SizedBox(height: 16),
+              _ExpenseFilterControls(
+                selectedCategories: _selectedCategoryFilters,
+                onCategoryToggled: (category) {
+                  setState(() {
+                    if (_selectedCategoryFilters.contains(category)) {
+                      _selectedCategoryFilters.remove(category);
+                    } else {
+                      _selectedCategoryFilters.add(category);
+                    }
+                  });
+                },
+                onClearFilters: () {
+                  setState(() {
+                    _selectedCategoryFilters.clear();
+                  });
+                },
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Text(
+                    'Rikiuoti:',
+                    style: TextStyle(
+                      color: subtext,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  DropdownButtonHideUnderline(
+                    child: DropdownButton<_ExpenseSortCriterion>(
+                      value: _sortCriterion,
+                      dropdownColor: surface,
+                      style: TextStyle(
+                        color: text,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      items: _ExpenseSortCriterion.values.map((criterion) {
+                        return DropdownMenuItem(
+                          value: criterion,
+                          child: Text(criterion.label),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() {
+                            _sortCriterion = value;
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    tooltip: _sortDirection.label,
+                    onPressed: () {
+                      setState(() {
+                        _sortDirection =
+                            _sortDirection == _ExpenseSortDirection.ascending
+                                ? _ExpenseSortDirection.descending
+                                : _ExpenseSortDirection.ascending;
+                      });
+                    },
+                    icon: Icon(
+                      _sortDirection == _ExpenseSortDirection.ascending
+                          ? Icons.arrow_upward_rounded
+                          : Icons.arrow_downward_rounded,
+                      color: text,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
               if (snapshot.connectionState == ConnectionState.waiting && rawExpenses.isEmpty)
                 const Center(child: CircularProgressIndicator())
               else if (expenses.isEmpty)
@@ -478,7 +611,9 @@ class _ExpensesPageState extends State<ExpensesPage> {
                       Icon(Icons.inbox_rounded, size: 54, color: subtext),
                       const SizedBox(height: 12),
                       Text(
-                        'Nėra išlaidų pagal pasirinktą laikotarpį arba filtrą',
+                        rawExpenses.isEmpty
+                            ? 'Nėra išlaidų pagal pasirinktą laikotarpį'
+                            : 'Nėra išlaidų pagal pasirinktą filtrą',
                         textAlign: TextAlign.center,
                         style: TextStyle(color: subtext),
                       ),
@@ -540,8 +675,8 @@ class _ExpensesPageState extends State<ExpensesPage> {
                             child: Text('Ištrinti'),
                           ),
                         ],
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
                               '-€${expense.amount.toStringAsFixed(2)}',
@@ -551,13 +686,10 @@ class _ExpensesPageState extends State<ExpensesPage> {
                                 fontSize: 16,
                               ),
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Detaliau',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: subtext,
-                              ),
+                            const SizedBox(width: 8),
+                            Icon(
+                              Icons.more_vert_rounded,
+                              color: subtext,
                             ),
                           ],
                         ),
@@ -568,6 +700,97 @@ class _ExpensesPageState extends State<ExpensesPage> {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+class _ExpenseFilterControls extends StatelessWidget {
+  final Set<ExpenseCategory> selectedCategories;
+  final ValueChanged<ExpenseCategory> onCategoryToggled;
+  final VoidCallback onClearFilters;
+
+  const _ExpenseFilterControls({
+    required this.selectedCategories,
+    required this.onCategoryToggled,
+    required this.onClearFilters,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final surface = AppPalette.surface(context);
+    final input = AppPalette.input(context);
+    final border = AppPalette.border(context);
+    final text = AppPalette.primaryText(context);
+    final subtext = AppPalette.secondaryText(context);
+    final hasActiveFilter = selectedCategories.isNotEmpty;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Kategorijų filtras',
+                      style: TextStyle(
+                        color: text,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      hasActiveFilter
+                          ? 'Aktyvios kategorijos: ${selectedCategories.length}'
+                          : 'Rodomos visos kategorijos',
+                      style: TextStyle(color: subtext),
+                    ),
+                  ],
+                ),
+              ),
+              if (hasActiveFilter)
+                TextButton.icon(
+                  onPressed: onClearFilters,
+                  icon: const Icon(Icons.clear_rounded, size: 18),
+                  label: const Text('Išvalyti'),
+                ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: ExpenseCategory.values.map((category) {
+              final selected = selectedCategories.contains(category);
+
+              return FilterChip(
+                label: Text(category.shortLabel),
+                selected: selected,
+                showCheckmark: false,
+                backgroundColor: input,
+                selectedColor: category.color.withOpacity(.22),
+                side: BorderSide(
+                  color: selected ? category.color : border,
+                ),
+                labelStyle: TextStyle(
+                  color: selected ? text : subtext,
+                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                ),
+                onSelected: (_) => onCategoryToggled(category),
+              );
+            }).toList(),
+          ),
+        ],
       ),
     );
   }
