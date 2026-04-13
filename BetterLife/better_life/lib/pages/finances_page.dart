@@ -11,6 +11,8 @@ import 'budget_page.dart';
 import 'expenses_page.dart';
 import 'widgets/add_expense_sheet.dart';
 import 'widgets/profile_action_button.dart';
+import 'goals_page.dart';
+import 'assets_page.dart';
 
 class FinancesPage extends StatelessWidget {
   const FinancesPage({super.key});
@@ -113,30 +115,53 @@ class FinancesPage extends StatelessWidget {
                       },
                     ),
                     ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: AppPalette.accentTeal.withOpacity(.18),
-                        child: const Icon(
-                          Icons.flag_rounded,
-                          color: AppPalette.accentTeal,
-                        ),
-                      ),
-                      title: Text(
-                        'Pridėti tikslą',
-                        style: TextStyle(color: text),
-                      ),
-                      subtitle: Text(
-                        'TBD',
-                        style: TextStyle(color: subtext),
-                      ),
-                      onTap: () {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('TBD'),
-                          ),
-                        );
-                      },
-                    ),
+  leading: CircleAvatar(
+    backgroundColor: AppPalette.accentTeal.withOpacity(.18),
+    child: const Icon(
+      Icons.flag_rounded,
+      color: AppPalette.accentTeal,
+    ),
+  ),
+  title: Text(
+    'Tikslai',
+    style: TextStyle(color: text),
+  ),
+  subtitle: Text(
+    'Taupymo tikslai',
+    style: TextStyle(color: subtext),
+  ),
+  onTap: () {
+    Navigator.pop(context);
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const GoalsPage()),
+    );
+  },
+),
+ListTile(
+  leading: CircleAvatar(
+    backgroundColor: Colors.orange.shade400.withOpacity(.18),
+    child: Icon(
+      Icons.account_balance_wallet_rounded,
+      color: Colors.orange.shade400,
+    ),
+  ),
+  title: Text(
+    'Turtas ir investicijos',
+    style: TextStyle(color: text),
+  ),
+  subtitle: Text(
+    'Turtas',
+    style: TextStyle(color: subtext),
+  ),
+  onTap: () {
+    Navigator.pop(context);
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const AssetsPage()),
+    );
+  },
+),
                   ],
                 ),
               ),
@@ -262,13 +287,27 @@ class FinancesPage extends StatelessWidget {
                         },
                       ),
                       _FinanceCard(
-                        title: 'Tikslai',
-                        value: '—',
-                        subtitle: 'TBD',
-                        icon: Icons.flag_rounded,
-                        accent: AppPalette.accentTeal,
-                        onTap: () {},
-                      ),
+  title: 'Tikslai',
+  value: 'Atidaryti',
+  subtitle: 'Taupymo tikslai',
+  icon: Icons.flag_rounded,
+  accent: AppPalette.accentTeal,
+  onTap: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const GoalsPage()),
+    );
+  },
+),
+                  _FinanceCard(
+                    title: 'Turtas ir investicijos',
+                    value: 'Atidaryti',
+                    subtitle: 'Turtas',
+                    icon: Icons.account_balance_wallet_rounded,
+                    accent: Colors.orange.shade400,
+                    onTap: () => Navigator.push(context,
+  MaterialPageRoute(builder: (_) => const AssetsPage())),
+                  ),
                     ],
                   ),
                   const SizedBox(height: 18),
