@@ -20,6 +20,14 @@ class IncomeService {
         .map((snapshot) => snapshot.docs.map(Income.fromDoc).toList());
   }
 
+  Stream<List<Income>> watchIncomesSince(String uid, DateTime start) {
+    return _incomesRef(uid)
+        .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
+        .orderBy('date', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map(Income.fromDoc).toList());
+  }
+
   Stream<List<Income>> watchAllIncomes(String uid) {
     return _incomesRef(uid)
         .orderBy('date', descending: true)
