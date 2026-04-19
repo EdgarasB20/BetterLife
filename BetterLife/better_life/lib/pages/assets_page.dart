@@ -1,65 +1,9 @@
 import 'package:flutter/material.dart';
 
-// ─── Enums ───────────────────────────────────────────────────────
+import '../models/asset.dart';
+import '../theme/app_palette.dart';
+import 'widgets/profile_action_button.dart';
 
-enum _AssetCategory { grynieji, santaupos, nt, kita }
-
-extension _AssetCategoryExt on _AssetCategory {
-  String get label {
-    switch (this) {
-      case _AssetCategory.grynieji:
-        return 'Grynieji';
-      case _AssetCategory.santaupos:
-        return 'Santaupos';
-      case _AssetCategory.nt:
-        return 'NT';
-      case _AssetCategory.kita:
-        return 'Kita';
-    }
-  }
-
-  IconData get icon {
-    switch (this) {
-      case _AssetCategory.grynieji:
-        return Icons.payments_rounded;
-      case _AssetCategory.santaupos:
-        return Icons.savings_rounded;
-      case _AssetCategory.nt:
-        return Icons.home_work_rounded;
-      case _AssetCategory.kita:
-        return Icons.category_rounded;
-    }
-  }
-
-  Color get color {
-    switch (this) {
-      case _AssetCategory.grynieji:
-        return Colors.teal.shade400;
-      case _AssetCategory.santaupos:
-        return Colors.blue.shade400;
-      case _AssetCategory.nt:
-        return Colors.orange.shade400;
-      case _AssetCategory.kita:
-        return Colors.purple.shade300;
-    }
-  }
-}
-
-// ─── Modelis ─────────────────────────────────────────────────────
-
-class _AssetItem {
-  final String name;
-  final double value;
-  final _AssetCategory category;
-  final DateTime createdAt;
-
-  _AssetItem({
-    required this.name,
-    required this.value,
-    required this.category,
-    DateTime? createdAt,
-  }) : createdAt = createdAt ?? DateTime.now();
-}
 
 // ─── Pagrindinis puslapis ────────────────────────────────────────
 
@@ -71,12 +15,12 @@ class AssetsPage extends StatefulWidget {
 }
 
 class _AssetsPageState extends State<AssetsPage> {
-  final List<_AssetItem> _assets = [];
+  final List<AssetItem> _assets = [];
 
-  double get _totalValue => _assets.fold(0, (sum, a) => sum + a.value);
+  double get _totalValue => totalAssetValue(_assets);
 
   void _addAsset() async {
-    final result = await showModalBottomSheet<_AssetItem>(
+    final result = await showModalBottomSheet<AssetItem>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -88,7 +32,7 @@ class _AssetsPageState extends State<AssetsPage> {
   }
 
   void _editAsset(int index) async {
-    final result = await showModalBottomSheet<_AssetItem>(
+    final result = await showModalBottomSheet<AssetItem>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -100,20 +44,24 @@ class _AssetsPageState extends State<AssetsPage> {
   }
 
   void _deleteAsset(int index) {
+    final surface = AppPalette.surface(context);
+    final text = AppPalette.primaryText(context);
+    final subtext = AppPalette.secondaryText(context);
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1D27),
-        title: const Text('Ištrinti?', style: TextStyle(color: Colors.white)),
+        backgroundColor: surface,
+        title: Text('Ištrinti?', style: TextStyle(color: text)),
         content: Text(
           'Ar tikrai norite ištrinti „${_assets[index].name}"?',
-          style: const TextStyle(color: Colors.white70),
+          style: TextStyle(color: subtext),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Atšaukti',
-                style: TextStyle(color: Colors.white54)),
+            child: Text('Atšaukti',
+                style: TextStyle(color: subtext)),
           ),
           TextButton(
             onPressed: () {
@@ -130,24 +78,28 @@ class _AssetsPageState extends State<AssetsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final categories = _AssetCategory.values;
+    final background = AppPalette.background(context);
+    final text = AppPalette.primaryText(context);
+    final subtext = AppPalette.secondaryText(context);
+
+    final categories = AssetCategory.values;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F1117),
+      backgroundColor: background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0F1117),
+        backgroundColor: background,
+        foregroundColor: text,
         elevation: 0,
         title: const Text(
           'Turtas & Investicijos',
-          style: TextStyle(
-              color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20),
+          style: TextStyle(fontWeight: FontWeight.w800),
         ),
-        iconTheme: const IconThemeData(color: Colors.white),
+        actions: const [ProfileActionButton()],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _addAsset,
-        backgroundColor: Colors.teal.shade400,
-        child: const Icon(Icons.add, color: Colors.white),
+        backgroundColor: AppPalette.accentTeal,
+        child: const Icon(Icons.add),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -174,13 +126,13 @@ class _AssetsPageState extends State<AssetsPage> {
                 padding: const EdgeInsets.symmetric(vertical: 60),
                 child: Column(
                   children: [
-                    const Icon(Icons.account_balance_outlined,
-                        size: 64, color: Colors.white24),
+                    Icon(Icons.account_balance_outlined,
+                        size: 64, color: subtext),
                     const SizedBox(height: 12),
-                    const Text(
+                    Text(
                       'Nėra turto įrašų.\nSpauskite + norėdami pridėti.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.white38, fontSize: 14),
+                      style: TextStyle(color: subtext, fontSize: 14),
                     ),
                   ],
                 ),
@@ -203,11 +155,7 @@ class _TotalValueCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.teal.shade700, Colors.teal.shade400],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        gradient: AppPalette.heroGradient,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -232,14 +180,18 @@ class _TotalValueCard extends StatelessWidget {
 // ─── Pasiskirstymo grafikas ───────────────────────────────────────
 
 class _DistributionChart extends StatelessWidget {
-  final List<_AssetItem> assets;
+  final List<AssetItem> assets;
   const _DistributionChart({required this.assets});
 
   @override
   Widget build(BuildContext context) {
+    final surface = AppPalette.surface(context);
+    final text = AppPalette.primaryText(context);
+    final subtext = AppPalette.secondaryText(context);
+
     final total = assets.fold(0.0, (s, a) => s + a.value);
-    final sums = <_AssetCategory, double>{
-      for (final cat in _AssetCategory.values) cat: 0.0,
+    final sums = <AssetCategory, double>{
+      for (final cat in AssetCategory.values) cat: 0.0,
     };
     for (final a in assets) {
       sums[a.category] = (sums[a.category] ?? 0) + a.value;
@@ -249,15 +201,15 @@ class _DistributionChart extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1D27),
+        color: surface,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Pasiskirstymas',
+          Text('Pasiskirstymas',
               style: TextStyle(
-                  color: Colors.white,
+                  color: text,
                   fontWeight: FontWeight.bold,
                   fontSize: 15)),
           const SizedBox(height: 14),
@@ -292,8 +244,8 @@ class _DistributionChart extends StatelessWidget {
                           color: e.key.color, shape: BoxShape.circle)),
                   const SizedBox(width: 4),
                   Text('${e.key.label} $pct%',
-                      style: const TextStyle(
-                          color: Colors.white60, fontSize: 12)),
+                      style: TextStyle(
+                          color: subtext, fontSize: 12)),
                 ],
               );
             }).toList(),
@@ -307,10 +259,10 @@ class _DistributionChart extends StatelessWidget {
 // ─── Kategorijų sekcija ───────────────────────────────────────────
 
 class _CategorySection extends StatelessWidget {
-  final _AssetCategory category;
-  final List<_AssetItem> items;
-  final void Function(_AssetItem) onEdit;
-  final void Function(_AssetItem) onDelete;
+  final AssetCategory category;
+  final List<AssetItem> items;
+  final void Function(AssetItem) onEdit;
+  final void Function(AssetItem) onDelete;
 
   const _CategorySection({
     required this.category,
@@ -321,6 +273,8 @@ class _CategorySection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final subtext = AppPalette.secondaryText(context);
+
     final total = items.fold(0.0, (s, a) => s + a.value);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -339,7 +293,7 @@ class _CategorySection extends StatelessWidget {
               const Spacer(),
               Text('${total.toStringAsFixed(2)} €',
                   style:
-                      const TextStyle(color: Colors.white54, fontSize: 13)),
+                      TextStyle(color: subtext, fontSize: 13)),
             ],
           ),
         ),
@@ -357,7 +311,7 @@ class _CategorySection extends StatelessWidget {
 // ─── Turto eilutė ────────────────────────────────────────────────
 
 class _AssetTile extends StatelessWidget {
-  final _AssetItem item;
+  final AssetItem item;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
@@ -369,11 +323,15 @@ class _AssetTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final surface = AppPalette.surface(context);
+    final text = AppPalette.primaryText(context);
+    final subtext = AppPalette.secondaryText(context);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1D27),
+        color: surface,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -393,27 +351,27 @@ class _AssetTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(item.name,
-                    style: const TextStyle(
-                        color: Colors.white,
+                    style: TextStyle(
+                        color: text,
                         fontWeight: FontWeight.w600,
                         fontSize: 14)),
                 Text(item.category.label,
-                    style: const TextStyle(
-                        color: Colors.white38, fontSize: 12)),
+                    style: TextStyle(
+                        color: subtext, fontSize: 12)),
               ],
             ),
           ),
           Text(
             '${item.value.toStringAsFixed(2)} €',
-            style: const TextStyle(
-                color: Colors.white,
+            style: TextStyle(
+                color: text,
                 fontWeight: FontWeight.bold,
                 fontSize: 14),
           ),
           const SizedBox(width: 4),
           IconButton(
-            icon: const Icon(Icons.edit_outlined,
-                color: Colors.white38, size: 18),
+            icon: Icon(Icons.edit_outlined,
+                color: subtext, size: 18),
             onPressed: onEdit,
           ),
           IconButton(
@@ -430,7 +388,7 @@ class _AssetTile extends StatelessWidget {
 // ─── Pridėti / redaguoti turtą ────────────────────────────────────
 
 class _AddAssetSheet extends StatefulWidget {
-  final _AssetItem? existing;
+  final AssetItem? existing;
   const _AddAssetSheet({this.existing});
 
   @override
@@ -440,7 +398,7 @@ class _AddAssetSheet extends StatefulWidget {
 class _AddAssetSheetState extends State<_AddAssetSheet> {
   late TextEditingController _nameCtrl;
   late TextEditingController _valueCtrl;
-  late _AssetCategory _selectedCategory;
+  late AssetCategory _selectedCategory;
 
   @override
   void initState() {
@@ -449,7 +407,7 @@ class _AddAssetSheetState extends State<_AddAssetSheet> {
     _valueCtrl = TextEditingController(
         text: widget.existing?.value.toStringAsFixed(2) ?? '');
     _selectedCategory =
-        widget.existing?.category ?? _AssetCategory.grynieji;
+        widget.existing?.category ?? AssetCategory.grynieji;
   }
 
   @override
@@ -465,7 +423,7 @@ class _AddAssetSheetState extends State<_AddAssetSheet> {
     if (name.isEmpty || value == null) return;
     Navigator.pop(
       context,
-      _AssetItem(
+      AssetItem(
         name: name,
         value: value,
         category: _selectedCategory,
@@ -476,15 +434,20 @@ class _AddAssetSheetState extends State<_AddAssetSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final surface = AppPalette.surface(context);
+    final text = AppPalette.primaryText(context);
+    final subtext = AppPalette.secondaryText(context);
+    final background = AppPalette.background(context);
+
     final isEdit = widget.existing != null;
     return Padding(
       padding:
           EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
         padding: const EdgeInsets.all(24),
-        decoration: const BoxDecoration(
-          color: Color(0xFF1A1D27),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -492,8 +455,8 @@ class _AddAssetSheetState extends State<_AddAssetSheet> {
           children: [
             Text(
               isEdit ? 'Redaguoti turtą' : 'Pridėti turtą',
-              style: const TextStyle(
-                  color: Colors.white,
+              style: TextStyle(
+                  color: text,
                   fontSize: 18,
                   fontWeight: FontWeight.bold),
             ),
@@ -505,7 +468,7 @@ class _AddAssetSheetState extends State<_AddAssetSheet> {
             const SizedBox(height: 16),
             Wrap(
               spacing: 8,
-              children: _AssetCategory.values.map((cat) {
+              children: AssetCategory.values.map((cat) {
                 final selected = _selectedCategory == cat;
                 return ChoiceChip(
                   label: Text(cat.label),
@@ -513,9 +476,9 @@ class _AddAssetSheetState extends State<_AddAssetSheet> {
                   onSelected: (_) =>
                       setState(() => _selectedCategory = cat),
                   selectedColor: cat.color,
-                  backgroundColor: const Color(0xFF0F1117),
+                  backgroundColor: background,
                   labelStyle: TextStyle(
-                      color: selected ? Colors.white : Colors.white54),
+                      color: selected ? Colors.white : subtext),
                 );
               }).toList(),
             ),
@@ -525,7 +488,7 @@ class _AddAssetSheetState extends State<_AddAssetSheet> {
               child: ElevatedButton(
                 onPressed: _submit,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.teal.shade400,
+                  backgroundColor: AppPalette.accentTeal,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
@@ -546,18 +509,22 @@ class _AddAssetSheetState extends State<_AddAssetSheet> {
   Widget _buildField(
       TextEditingController ctrl, String hint, IconData icon,
       {bool isNumber = false}) {
+    final surface = AppPalette.surface(context);
+    final text = AppPalette.primaryText(context);
+    final subtext = AppPalette.secondaryText(context);
+
     return TextField(
       controller: ctrl,
       keyboardType: isNumber
           ? const TextInputType.numberWithOptions(decimal: true)
           : TextInputType.text,
-      style: const TextStyle(color: Colors.white),
+      style: TextStyle(color: text),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: const TextStyle(color: Colors.white38),
-        prefixIcon: Icon(icon, color: Colors.white38, size: 20),
+        hintStyle: TextStyle(color: subtext),
+        prefixIcon: Icon(icon, color: subtext, size: 20),
         filled: true,
-        fillColor: const Color(0xFF0F1117),
+        fillColor: surface,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: BorderSide.none,

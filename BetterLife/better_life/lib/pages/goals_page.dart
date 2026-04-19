@@ -40,31 +40,34 @@ class Goal {
   bool get isCompleted => saved >= target;
   double get remaining => (target - saved).clamp(0, double.infinity);
 
-  double get recommendedMonthly {
-    final months = endDate.difference(DateTime.now()).inDays / 30;
+  double recommendedMonthly([DateTime? now]) {
+    final current = now ?? DateTime.now();
+    final months = endDate.difference(current).inDays / 30;
     if (months <= 0) return remaining;
     return remaining / months;
   }
 
   /// Returns how many whole months have elapsed since [lastAutoApplied]
   /// (or [startDate] if never applied) up to now.
-  int pendingAutoMonths() {
+  int pendingAutoMonths([DateTime? now]) {
     if (monthlyContribution <= 0) return 0;
+    final current = now ?? DateTime.now();
     final since = lastAutoApplied ?? startDate;
-    final months = DateTime.now().difference(since).inDays ~/ 30;
+    final months = current.difference(since).inDays ~/ 30;
     return months.clamp(0, 9999);
   }
 
   /// Applies all pending auto months and updates [lastAutoApplied].
   /// Returns the amount that was added.
-  double applyAutoContributions() {
-    final months = pendingAutoMonths();
+  double applyAutoContributions([DateTime? now]) {
+    final current = now ?? DateTime.now();
+    final months = pendingAutoMonths(current);
     if (months <= 0) return 0;
     final added = (monthlyContribution * months)
         .clamp(0, remaining)
         .toDouble();
     saved = (saved + added).clamp(0, target);
-    lastAutoApplied = DateTime.now();
+    lastAutoApplied = current;
     return added;
   }
 }
@@ -1434,7 +1437,7 @@ class _GoalCard extends StatelessWidget {
                     const SizedBox(width: 4),
                     Text(
                       '€${goal.monthlyContribution.toStringAsFixed(2)}/mėn.  ·  '
-                      'Rekomenduojama: €${goal.recommendedMonthly.toStringAsFixed(2)}',
+                      'Rekomenduojama: €${goal.recommendedMonthly().toStringAsFixed(2)}',
                       style: TextStyle(
                           color: AppPalette.accentTeal, fontSize: 11),
                     ),
