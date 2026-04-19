@@ -1,56 +1,49 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
+import 'package:better_life/models/expense.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:better_life/main.dart';
-
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  group('Expense model', () {
+    test('maps stored category names to enum values', () {
+      final cases = <String, ExpenseCategory>{
+        'food': ExpenseCategory.food,
+        'transport': ExpenseCategory.transport,
+        'shopping': ExpenseCategory.shopping,
+        'bills': ExpenseCategory.bills,
+        'health': ExpenseCategory.health,
+        'entertainment': ExpenseCategory.entertainment,
+        'other': ExpenseCategory.other,
+      };
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+      for (final entry in cases.entries) {
+        expect(expenseCategoryFromString(entry.key), entry.value);
+      }
+    });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    test('falls back to other category for unknown stored values', () {
+      expect(expenseCategoryFromString(null), ExpenseCategory.other);
+      expect(expenseCategoryFromString('unexpected'), ExpenseCategory.other);
+    });
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
-  });
+    test('copyWith changes selected fields and keeps the rest', () {
+      final original = Expense(
+        id: 'expense-1',
+        amount: 10,
+        note: 'Lunch',
+        category: ExpenseCategory.food,
+        date: DateTime(2026, 4, 1),
+      );
 
-  testWidgets('pressing reset-password button does not crash', (tester) async {
-    await tester.pumpWidget(const MyApp());
-    // navigate to SignInPage if not the home page
-    // (app may start with counter; adapt if necessary)
+      final updated = original.copyWith(
+        amount: 12.5,
+        note: 'Dinner',
+        category: ExpenseCategory.entertainment,
+      );
 
-    // open drawer/route if needed - simple approach: just tap the
-    // hard-coded text if it exists. For safety, we guard with findsOneWidget.
-    final resetFinder = find.text('Pamiršai slaptažodį?');
-    if (resetFinder.evaluate().isEmpty) {
-      // not on screen; skip
-      return;
-    }
-
-    await tester.tap(resetFinder);
-    // allow dialog animation to finish
-    await tester.pumpAndSettle();
-
-    // the dialog should be present now
-    expect(find.text('El. paštas'), findsWidgets);
-    // close it
-    await tester.tap(find.text('Atšaukti'));
-    await tester.pumpAndSettle();
-    // if the test reaches this point without an assertion, the previous
-    // framework error (dependents.isEmpty) is avoided.
+      expect(updated.id, original.id);
+      expect(updated.date, original.date);
+      expect(updated.amount, 12.5);
+      expect(updated.note, 'Dinner');
+      expect(updated.category, ExpenseCategory.entertainment);
+    });
   });
 }
