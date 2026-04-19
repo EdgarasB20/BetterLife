@@ -9,16 +9,9 @@ import '../theme/app_palette.dart';
 import 'widgets/add_expense_sheet.dart';
 import 'widgets/profile_action_button.dart';
 
-enum _ExpenseSortCriterion {
-  date,
-  amount,
-  category,
-}
+enum _ExpenseSortCriterion { date, amount, category }
 
-enum _ExpenseSortDirection {
-  ascending,
-  descending,
-}
+enum _ExpenseSortDirection { ascending, descending }
 
 extension _ExpenseSortCriterionX on _ExpenseSortCriterion {
   String get label {
@@ -45,21 +38,55 @@ extension _ExpenseSortDirectionX on _ExpenseSortDirection {
 }
 
 class ExpensesPage extends StatefulWidget {
-  const ExpensesPage({super.key});
+  final ExpenseService? expenseService;
+  final String? Function()? currentUserId;
+  final DateTime? initialMonth;
+  final Widget? profileAction;
+
+  const ExpensesPage({
+    super.key,
+    this.expenseService,
+    this.currentUserId,
+    this.initialMonth,
+    this.profileAction,
+  });
 
   @override
   State<ExpensesPage> createState() => _ExpensesPageState();
 }
 
 class _ExpensesPageState extends State<ExpensesPage> {
-  final ExpenseService _expenseService = ExpenseService();
+  late final ExpenseService _expenseService;
 
-  DateTime _selectedMonth = DateTime.now();
+  late DateTime _selectedMonth;
   final Set<ExpenseCategory> _selectedCategoryFilters = {};
   _ExpenseSortCriterion _sortCriterion = _ExpenseSortCriterion.date;
   _ExpenseSortDirection _sortDirection = _ExpenseSortDirection.descending;
 
-  String get _uid => FirebaseAuth.instance.currentUser!.uid;
+  String? get _uid {
+    final currentUserId = widget.currentUserId;
+    if (currentUserId != null) {
+      return currentUserId();
+    }
+
+    return FirebaseAuth.instance.currentUser?.uid;
+  }
+
+  String get _requiredUid {
+    final uid = _uid;
+    if (uid == null) {
+      throw StateError('ExpensesPage requires an authenticated user.');
+    }
+
+    return uid;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _expenseService = widget.expenseService ?? ExpenseService();
+    _selectedMonth = widget.initialMonth ?? DateTime.now();
+  }
 
   Future<void> _openAddExpense() async {
     await showModalBottomSheet(
@@ -69,11 +96,11 @@ class _ExpensesPageState extends State<ExpensesPage> {
       builder: (_) {
         return AddExpenseSheet(
           onSave: (expense) async {
-            await _expenseService.addExpense(_uid, expense);
+            await _expenseService.addExpense(_requiredUid, expense);
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Išlaida pridėta')),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('Išlaida pridėta')));
             }
           },
         );
@@ -90,7 +117,11 @@ class _ExpensesPageState extends State<ExpensesPage> {
         return AddExpenseSheet(
           initialExpense: expense,
           onSave: (updatedExpense) async {
-            await _expenseService.updateExpense(_uid, expense.id, updatedExpense);
+            await _expenseService.updateExpense(
+              _requiredUid,
+              expense.id,
+              updatedExpense,
+            );
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Išlaida atnaujinta')),
@@ -103,11 +134,11 @@ class _ExpensesPageState extends State<ExpensesPage> {
   }
 
   Future<void> _deleteExpense(String expenseId) async {
-    await _expenseService.deleteExpense(_uid, expenseId);
+    await _expenseService.deleteExpense(_requiredUid, expenseId);
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Išlaida ištrinta')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Išlaida ištrinta')));
     }
   }
 
@@ -164,7 +195,9 @@ class _ExpensesPageState extends State<ExpensesPage> {
           child: Container(
             decoration: BoxDecoration(
               color: surface,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(30),
+              ),
             ),
             child: SafeArea(
               top: false,
@@ -184,7 +217,9 @@ class _ExpensesPageState extends State<ExpensesPage> {
                       const SizedBox(height: 18),
                       CircleAvatar(
                         radius: 34,
-                        backgroundColor: expense.category.color.withOpacity(.15),
+                        backgroundColor: expense.category.color.withOpacity(
+                          .15,
+                        ),
                         child: Text(
                           expense.category.emoji,
                           style: const TextStyle(fontSize: 28),
@@ -192,7 +227,9 @@ class _ExpensesPageState extends State<ExpensesPage> {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        expense.note.isEmpty ? expense.category.label : expense.note,
+                        expense.note.isEmpty
+                            ? expense.category.label
+                            : expense.note,
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 24,
@@ -227,7 +264,9 @@ class _ExpensesPageState extends State<ExpensesPage> {
                             _DetailRow(
                               icon: Icons.calendar_month_rounded,
                               label: 'Data',
-                              value: DateFormat('dd.MM.yyyy').format(expense.date),
+                              value: DateFormat(
+                                'dd.MM.yyyy',
+                              ).format(expense.date),
                             ),
                             _DetailRow(
                               icon: Icons.notes_rounded,
@@ -238,8 +277,9 @@ class _ExpensesPageState extends State<ExpensesPage> {
                               icon: Icons.schedule_rounded,
                               label: 'Sukurta',
                               value: expense.createdAt != null
-                                  ? DateFormat('yyyy-MM-dd HH:mm')
-                                      .format(expense.createdAt!)
+                                  ? DateFormat(
+                                      'yyyy-MM-dd HH:mm',
+                                    ).format(expense.createdAt!)
                                   : '—',
                             ),
                           ],
@@ -312,8 +352,9 @@ class _ExpensesPageState extends State<ExpensesPage> {
       final comparison = switch (_sortCriterion) {
         _ExpenseSortCriterion.date => a.date.compareTo(b.date),
         _ExpenseSortCriterion.amount => a.amount.compareTo(b.amount),
-        _ExpenseSortCriterion.category =>
-          a.category.label.compareTo(b.category.label),
+        _ExpenseSortCriterion.category => a.category.label.compareTo(
+          b.category.label,
+        ),
       };
 
       if (_sortDirection == _ExpenseSortDirection.ascending) {
@@ -328,14 +369,10 @@ class _ExpensesPageState extends State<ExpensesPage> {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
+    final uid = _uid;
 
-    if (user == null) {
-      return const Scaffold(
-        body: Center(
-          child: Text('Pirma prisijunk'),
-        ),
-      );
+    if (uid == null) {
+      return const Scaffold(body: Center(child: Text('Pirma prisijunk')));
     }
 
     final background = AppPalette.background(context);
@@ -351,9 +388,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
         foregroundColor: text,
         elevation: 0,
         title: const Text('Išlaidos'),
-        actions: [
-          const ProfileActionButton(),
-        ],
+        actions: [widget.profileAction ?? const ProfileActionButton()],
       ),
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: AppPalette.accentGreen,
@@ -363,7 +398,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
         label: const Text('Pridėti'),
       ),
       body: StreamBuilder<List<Expense>>(
-        stream: _expenseService.watchMonthlyExpenses(_uid, _selectedMonth),
+        stream: _expenseService.watchMonthlyExpenses(uid, _selectedMonth),
         builder: (context, snapshot) {
           final rawExpenses = snapshot.data ?? [];
           final expenses = _processExpenses(rawExpenses);
@@ -372,7 +407,8 @@ class _ExpensesPageState extends State<ExpensesPage> {
 
           final Map<ExpenseCategory, double> grouped = {};
           for (final expense in expenses) {
-            grouped[expense.category] = (grouped[expense.category] ?? 0) + expense.amount;
+            grouped[expense.category] =
+                (grouped[expense.category] ?? 0) + expense.amount;
           }
 
           return ListView(
@@ -395,7 +431,10 @@ class _ExpensesPageState extends State<ExpensesPage> {
                           );
                         });
                       },
-                      icon: const Icon(Icons.chevron_left_rounded, color: Colors.white),
+                      icon: const Icon(
+                        Icons.chevron_left_rounded,
+                        color: Colors.white,
+                      ),
                     ),
                     Expanded(
                       child: Column(
@@ -425,7 +464,10 @@ class _ExpensesPageState extends State<ExpensesPage> {
                           );
                         });
                       },
-                      icon: const Icon(Icons.chevron_right_rounded, color: Colors.white),
+                      icon: const Icon(
+                        Icons.chevron_right_rounded,
+                        color: Colors.white,
+                      ),
                     ),
                   ],
                 ),
@@ -554,6 +596,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
                   const SizedBox(width: 10),
                   DropdownButtonHideUnderline(
                     child: DropdownButton<_ExpenseSortCriterion>(
+                      key: const ValueKey('expense-sort-criterion'),
                       value: _sortCriterion,
                       dropdownColor: surface,
                       style: TextStyle(
@@ -577,13 +620,14 @@ class _ExpensesPageState extends State<ExpensesPage> {
                   ),
                   const Spacer(),
                   IconButton(
+                    key: const ValueKey('expense-sort-direction'),
                     tooltip: _sortDirection.label,
                     onPressed: () {
                       setState(() {
                         _sortDirection =
                             _sortDirection == _ExpenseSortDirection.ascending
-                                ? _ExpenseSortDirection.descending
-                                : _ExpenseSortDirection.ascending;
+                            ? _ExpenseSortDirection.descending
+                            : _ExpenseSortDirection.ascending;
                       });
                     },
                     icon: Icon(
@@ -596,7 +640,8 @@ class _ExpensesPageState extends State<ExpensesPage> {
                 ],
               ),
               const SizedBox(height: 16),
-              if (snapshot.connectionState == ConnectionState.waiting && rawExpenses.isEmpty)
+              if (snapshot.connectionState == ConnectionState.waiting &&
+                  rawExpenses.isEmpty)
                 const Center(child: CircularProgressIndicator())
               else if (expenses.isEmpty)
                 Container(
@@ -630,27 +675,34 @@ class _ExpensesPageState extends State<ExpensesPage> {
                       border: Border.all(color: border),
                     ),
                     child: ListTile(
+                      key: ValueKey('expense-item-${expense.id}'),
                       onTap: () => _showExpenseDetails(expense),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 14,
                         vertical: 8,
                       ),
                       leading: CircleAvatar(
-                        backgroundColor: expense.category.color.withOpacity(.15),
+                        backgroundColor: expense.category.color.withOpacity(
+                          .15,
+                        ),
                         child: Text(expense.category.emoji),
                       ),
                       title: Text(
-                        expense.note.isEmpty ? expense.category.label : expense.note,
+                        expense.note.isEmpty
+                            ? expense.category.label
+                            : expense.note,
                         style: TextStyle(
                           fontWeight: FontWeight.w700,
                           color: text,
                         ),
                       ),
                       subtitle: Text(
-                        '${expense.category.shortLabel} • ${DateFormat('dd.MM.yyyy').format(expense.date)}',
+                        '${expense.category.shortLabel} • '
+                        '${DateFormat('dd.MM.yyyy').format(expense.date)}',
                         style: TextStyle(color: subtext),
                       ),
                       trailing: PopupMenuButton<String>(
+                        key: ValueKey('expense-menu-${expense.id}'),
                         color: surface,
                         onSelected: (value) async {
                           if (value == 'view') {
@@ -687,10 +739,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            Icon(
-                              Icons.more_vert_rounded,
-                              color: subtext,
-                            ),
+                            Icon(Icons.more_vert_rounded, color: subtext),
                           ],
                         ),
                       ),
@@ -760,6 +809,7 @@ class _ExpenseFilterControls extends StatelessWidget {
               ),
               if (hasActiveFilter)
                 TextButton.icon(
+                  key: const ValueKey('expense-clear-filters'),
                   onPressed: onClearFilters,
                   icon: const Icon(Icons.clear_rounded, size: 18),
                   label: const Text('Išvalyti'),
@@ -774,14 +824,13 @@ class _ExpenseFilterControls extends StatelessWidget {
               final selected = selectedCategories.contains(category);
 
               return FilterChip(
+                key: ValueKey('expense-filter-${category.name}'),
                 label: Text(category.shortLabel),
                 selected: selected,
                 showCheckmark: false,
                 backgroundColor: input,
                 selectedColor: category.color.withOpacity(.22),
-                side: BorderSide(
-                  color: selected ? category.color : border,
-                ),
+                side: BorderSide(color: selected ? category.color : border),
                 labelStyle: TextStyle(
                   color: selected ? text : subtext,
                   fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
@@ -880,10 +929,7 @@ class _DetailRow extends StatelessWidget {
             child: Text(
               value,
               textAlign: TextAlign.right,
-              style: TextStyle(
-                color: text,
-                fontWeight: FontWeight.w700,
-              ),
+              style: TextStyle(color: text, fontWeight: FontWeight.w700),
             ),
           ),
         ],
