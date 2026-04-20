@@ -2,7 +2,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/income.dart';
 
 class IncomeService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  IncomeService({FirebaseFirestore? firestore})
+    : _firestore = firestore ?? FirebaseFirestore.instance;
+
+  final FirebaseFirestore _firestore;
 
   CollectionReference<Map<String, dynamic>> _incomesRef(String uid) {
     return _firestore.collection('users').doc(uid).collection('incomes');
