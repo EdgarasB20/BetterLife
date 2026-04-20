@@ -15,20 +15,55 @@ enum IncomeSortField { date, amount }
 enum SortDirection { asc, desc }
 
 class IncomePage extends StatefulWidget {
-  const IncomePage({super.key});
+  final IncomeService? incomeService;
+  final String? Function()? currentUserId;
+  final DateTime? initialMonth;
+  final Widget? profileAction;
+
+  const IncomePage({
+    super.key,
+    this.incomeService,
+    this.currentUserId,
+    this.initialMonth,
+    this.profileAction,
+  });
 
   @override
   State<IncomePage> createState() => _IncomePageState();
 }
 
 class _IncomePageState extends State<IncomePage> {
-  final IncomeService _incomeService = IncomeService();
-  String get _uid => FirebaseAuth.instance.currentUser!.uid;
+  late final IncomeService _incomeService;
 
-  DateTime _selectedMonth = DateTime.now();
+  String? get _uid {
+    final currentUserId = widget.currentUserId;
+    if (currentUserId != null) {
+      return currentUserId();
+    }
+
+    return FirebaseAuth.instance.currentUser?.uid;
+  }
+
+  String get _requiredUid {
+    final uid = _uid;
+    if (uid == null) {
+      throw StateError('IncomePage requires an authenticated user.');
+    }
+
+    return uid;
+  }
+
+  late DateTime _selectedMonth;
   IncomePeriod _selectedPeriod = IncomePeriod.month;
   IncomeSortField _sortField = IncomeSortField.date;
   SortDirection _sortDirection = SortDirection.desc;
+
+  @override
+  void initState() {
+    super.initState();
+    _incomeService = widget.incomeService ?? IncomeService();
+    _selectedMonth = widget.initialMonth ?? DateTime.now();
+  }
 
   String get _sortFieldLabel {
     switch (_sortField) {
@@ -65,7 +100,7 @@ class _IncomePageState extends State<IncomePage> {
     final streamStart = monthStart.isBefore(chartStart)
         ? monthStart
         : chartStart;
-    return _incomeService.watchIncomesSince(_uid, streamStart);
+    return _incomeService.watchIncomesSince(_requiredUid, streamStart);
   }
 
   DateTime _chartStartDate(DateTime now) {
@@ -97,7 +132,7 @@ class _IncomePageState extends State<IncomePage> {
       builder: (_) {
         return AddIncomeSheet(
           onSave: (income) async {
-            await _incomeService.addIncome(_uid, income);
+            await _incomeService.addIncome(_requiredUid, income);
             if (mounted) {
               ScaffoldMessenger.of(
                 context,
@@ -118,7 +153,11 @@ class _IncomePageState extends State<IncomePage> {
         return AddIncomeSheet(
           initialIncome: income,
           onSave: (updatedIncome) async {
-            await _incomeService.updateIncome(_uid, income.id, updatedIncome);
+            await _incomeService.updateIncome(
+              _requiredUid,
+              income.id,
+              updatedIncome,
+            );
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Pajama atnaujinta')),
@@ -131,7 +170,7 @@ class _IncomePageState extends State<IncomePage> {
   }
 
   Future<void> _deleteIncome(String incomeId) async {
-    await _incomeService.deleteIncome(_uid, incomeId);
+    await _incomeService.deleteIncome(_requiredUid, incomeId);
     if (mounted) {
       ScaffoldMessenger.of(
         context,
@@ -178,14 +217,11 @@ class _IncomePageState extends State<IncomePage> {
 
   @override
   Widget build(BuildContext context) {
-    // final user = FirebaseAuth.instance.currentUser;
-    // if (user == null) {
-    //   return const Scaffold(
-    //     body: Center(
-    //       child: Text('Pirma prisijunk'),
-    //     ),
-    //   );
-    // }
+    final uid = _uid;
+
+    if (uid == null) {
+      return const Scaffold(body: Center(child: Text('Pirma prisijunk')));
+    }
 
     final background = AppPalette.background(context);
     final surface = AppPalette.surface(context);
@@ -200,7 +236,7 @@ class _IncomePageState extends State<IncomePage> {
         foregroundColor: text,
         elevation: 0,
         title: const Text('Pajamos'),
-        actions: [const ProfileActionButton()],
+        actions: [widget.profileAction ?? const ProfileActionButton()],
       ),
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: AppPalette.accentPurple,
@@ -475,6 +511,7 @@ class _IncomePageState extends State<IncomePage> {
                       children: [
                         Expanded(
                           child: DropdownButtonFormField<IncomeSortField>(
+                            key: const ValueKey('income-sort-field'),
                             value: _sortField,
                             decoration: InputDecoration(
                               labelText: 'Kriterijus',
@@ -507,6 +544,7 @@ class _IncomePageState extends State<IncomePage> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: DropdownButtonFormField<SortDirection>(
+                            key: const ValueKey('income-sort-direction'),
                             value: _sortDirection,
                             decoration: InputDecoration(
                               labelText: 'Kryptis',
@@ -555,6 +593,7 @@ class _IncomePageState extends State<IncomePage> {
                       border: Border.all(color: border),
                     ),
                     child: ListTile(
+                      key: ValueKey('income-item-${income.id}'),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 14,
                         vertical: 8,
@@ -585,6 +624,7 @@ class _IncomePageState extends State<IncomePage> {
                         ],
                       ),
                       trailing: PopupMenuButton<String>(
+                        key: ValueKey('income-menu-${income.id}'),
                         color: surface,
                         onSelected: (value) async {
                           if (value == 'edit') {
