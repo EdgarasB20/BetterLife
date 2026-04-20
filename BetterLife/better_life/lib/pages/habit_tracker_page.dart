@@ -284,6 +284,11 @@ class _HealthViewState extends State<_HealthView> {
                 )),
         ],
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showHabitSheet(context, null),
+        backgroundColor: AppPalette.accentTeal,
+        child: const Icon(Icons.add),
+      ),
     );
   }
 

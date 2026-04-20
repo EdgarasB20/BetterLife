@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/app_palette.dart';
+import 'habit_tracker_page.dart' as habit_tracker;
 import 'steps_page.dart';
 import 'widgets/profile_action_button.dart';
 
@@ -67,6 +68,62 @@ class HealthPage extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ),
+          const SizedBox(height: 18),
+          InkWell(
+            borderRadius: BorderRadius.circular(24),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const habit_tracker.HealthPage(),
+                ),
+              );
+            },
+            child: Ink(
+              decoration: BoxDecoration(
+                color: surface,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: border),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 24,
+                      backgroundColor: AppPalette.accentTeal.withOpacity(.15),
+                      child: const Icon(
+                        Icons.track_changes_rounded,
+                        color: AppPalette.accentTeal,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Įpročiai',
+                            style: TextStyle(
+                              color: text,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Sek ir kurk naujus įpročius',
+                            style: TextStyle(color: subtext),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.chevron_right_rounded, color: subtext),
+                  ],
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 18),
