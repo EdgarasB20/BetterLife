@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/app_palette.dart';
+import 'calories_page.dart';
 import 'habit_tracker_page.dart' as habit_tracker;
 import 'steps_page.dart';
 import 'widgets/profile_action_button.dart';
@@ -59,7 +60,7 @@ class HealthPage extends StatelessWidget {
                 ),
                 SizedBox(height: 8),
                 Text(
-                  'Sek savo žingsnius\npagal datas',
+                  'Sek savo žingsnius\nir mitybą',
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w800,
@@ -68,6 +69,62 @@ class HealthPage extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ),
+          const SizedBox(height: 18),
+          InkWell(
+            borderRadius: BorderRadius.circular(24),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const CaloriesPage(),
+                ),
+              );
+            },
+            child: Ink(
+              decoration: BoxDecoration(
+                color: surface,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: border),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 24,
+                      backgroundColor: AppPalette.accentOrange.withOpacity(.15),
+                      child: const Icon(
+                        Icons.local_fire_department_rounded,
+                        color: AppPalette.accentOrange,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Kalorijos',
+                            style: TextStyle(
+                              color: text,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Dienos įrašai ir bendra kalorijų suma',
+                            style: TextStyle(color: subtext),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.chevron_right_rounded, color: subtext),
+                  ],
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 18),
