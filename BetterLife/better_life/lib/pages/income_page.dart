@@ -14,6 +14,8 @@ enum IncomeSortField { date, amount }
 
 enum SortDirection { asc, desc }
 
+enum IncomeChartType { trend, categories }
+
 class IncomePage extends StatefulWidget {
   final IncomeService? incomeService;
   final String? Function()? currentUserId;
@@ -55,14 +57,45 @@ class _IncomePageState extends State<IncomePage> {
 
   late DateTime _selectedMonth;
   IncomePeriod _selectedPeriod = IncomePeriod.month;
+  IncomeChartType _selectedChartType = IncomeChartType.categories;
   IncomeSortField _sortField = IncomeSortField.date;
   SortDirection _sortDirection = SortDirection.desc;
+  Stream<List<Income>>? _incomeStream;
+  List<Income> _latestIncomes = [];
+  String? _streamUid;
+  DateTime? _streamStart;
 
   @override
   void initState() {
     super.initState();
     _incomeService = widget.incomeService ?? IncomeService();
-    _selectedMonth = widget.initialMonth ?? DateTime.now();
+    _selectedMonth = _clampToCurrentMonth(
+      widget.initialMonth ?? DateTime.now(),
+    );
+  }
+
+  DateTime _monthStart(DateTime date) => DateTime(date.year, date.month);
+
+  DateTime _currentMonth() => _monthStart(DateTime.now());
+
+  DateTime _clampToCurrentMonth(DateTime date) {
+    final month = _monthStart(date);
+    final currentMonth = _currentMonth();
+
+    return month.isAfter(currentMonth) ? currentMonth : month;
+  }
+
+  bool get _isCurrentMonth =>
+      _monthStart(_selectedMonth).isAtSameMomentAs(_currentMonth());
+
+  void _goToCurrentMonth() {
+    if (_isCurrentMonth) {
+      return;
+    }
+
+    setState(() {
+      _selectedMonth = _currentMonth();
+    });
   }
 
   String get _sortFieldLabel {
@@ -93,14 +126,25 @@ class _IncomePageState extends State<IncomePage> {
     return _sortDirection == SortDirection.asc ? comparison : -comparison;
   }
 
-  Stream<List<Income>> get _incomeStream {
+  DateTime _incomeStreamStart() {
     final now = DateTime.now();
     final chartStart = _chartStartDate(now);
-    final monthStart = DateTime(_selectedMonth.year, _selectedMonth.month, 1);
-    final streamStart = monthStart.isBefore(chartStart)
-        ? monthStart
-        : chartStart;
-    return _incomeService.watchIncomesSince(_requiredUid, streamStart);
+    final monthStart = _monthStart(_selectedMonth);
+
+    return monthStart.isBefore(chartStart) ? monthStart : chartStart;
+  }
+
+  void _ensureIncomeStream(String uid) {
+    final streamStart = _incomeStreamStart();
+    if (_incomeStream != null &&
+        _streamUid == uid &&
+        _streamStart == streamStart) {
+      return;
+    }
+
+    _streamUid = uid;
+    _streamStart = streamStart;
+    _incomeStream = _incomeService.watchIncomesSince(uid, streamStart);
   }
 
   DateTime _chartStartDate(DateTime now) {
@@ -215,6 +259,136 @@ class _IncomePageState extends State<IncomePage> {
     }
   }
 
+  Widget _buildChartTypeButton({
+    required IncomeChartType type,
+    required String label,
+    required IconData icon,
+    required Color textColor,
+    required Color surfaceColor,
+  }) {
+    final isSelected = _selectedChartType == type;
+
+    return ChoiceChip(
+      key: ValueKey('income-chart-type-${type.name}'),
+      avatar: Icon(
+        icon,
+        size: 18,
+        color: isSelected ? Colors.white : textColor,
+      ),
+      label: Text(label),
+      selected: isSelected,
+      selectedColor: AppPalette.accentPurple,
+      backgroundColor: surfaceColor,
+      labelStyle: TextStyle(color: isSelected ? Colors.white : textColor),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      onSelected: (_) {
+        if (isSelected) {
+          return;
+        }
+
+        setState(() {
+          _selectedChartType = type;
+        });
+      },
+    );
+  }
+
+  Widget _buildChartEmptyState(Color subtext) {
+    return Center(
+      child: Text(
+        'Nėra pajamų šiame laikotarpyje',
+        textAlign: TextAlign.center,
+        style: TextStyle(color: subtext),
+      ),
+    );
+  }
+
+  Widget _buildCategoryChart({
+    required List<MapEntry<IncomeCategory, double>> sortedCategories,
+    required double monthTotal,
+    required Color textColor,
+    required Color subtext,
+  }) {
+    if (sortedCategories.isEmpty || monthTotal <= 0) {
+      return SizedBox(height: 260, child: _buildChartEmptyState(subtext));
+    }
+
+    return Column(
+      children: [
+        SizedBox(
+          height: 260,
+          child: RepaintBoundary(
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                PieChart(
+                  PieChartData(
+                    centerSpaceRadius: 62,
+                    sectionsSpace: 4,
+                    sections: sortedCategories.map((entry) {
+                      final category = entry.key;
+                      final sum = entry.value;
+                      return PieChartSectionData(
+                        value: sum,
+                        color: category.color,
+                        radius: 22,
+                        showTitle: false,
+                      );
+                    }).toList(),
+                  ),
+                ),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Mėnesio suma', style: TextStyle(color: subtext)),
+                    const SizedBox(height: 6),
+                    Text(
+                      '${monthTotal.toStringAsFixed(2)} €',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        color: textColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: sortedCategories.map((entry) {
+            final category = entry.key;
+            final sum = entry.value;
+            final percentage = (sum / monthTotal * 100).toStringAsFixed(1);
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: category.color.withOpacity(.12),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: category.color.withOpacity(.35)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(category.emoji),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${category.label} • ${sum.toStringAsFixed(2)} € ($percentage%)',
+                    style: TextStyle(color: textColor),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final uid = _uid;
@@ -222,6 +396,8 @@ class _IncomePageState extends State<IncomePage> {
     if (uid == null) {
       return const Scaffold(body: Center(child: Text('Pirma prisijunk')));
     }
+
+    _ensureIncomeStream(uid);
 
     final background = AppPalette.background(context);
     final surface = AppPalette.surface(context);
@@ -248,21 +424,22 @@ class _IncomePageState extends State<IncomePage> {
       body: StreamBuilder<List<Income>>(
         stream: _incomeStream,
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          if (snapshot.hasData) {
+            _latestIncomes = snapshot.data!;
+          }
+
+          if (snapshot.connectionState == ConnectionState.waiting &&
+              _latestIncomes.isEmpty) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          if (snapshot.hasError) {
+          if (snapshot.hasError && _latestIncomes.isEmpty) {
             return Center(child: Text('Įvyko klaida: ${snapshot.error}'));
           }
 
-          final incomes = snapshot.data ?? [];
+          final incomes = snapshot.data ?? _latestIncomes;
 
-          final monthStart = DateTime(
-            _selectedMonth.year,
-            _selectedMonth.month,
-            1,
-          );
+          final monthStart = _monthStart(_selectedMonth);
           final monthEnd = DateTime(
             _selectedMonth.year,
             _selectedMonth.month + 1,
@@ -298,79 +475,85 @@ class _IncomePageState extends State<IncomePage> {
               Container(
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
-                  color: surface,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: border),
-                ),
-                child: IncomeChart(
-                  incomes: snapshot.data ?? [],
-                  selectedPeriod: _selectedPeriod,
-                  onPeriodSelected: (period) {
-                    setState(() {
-                      _selectedPeriod = period;
-                    });
-                  },
-                  textColor: text,
-                  borderColor: border,
-                  surfaceColor: surface,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(24),
                   gradient: AppPalette.heroGradient,
                 ),
-                child: Row(
+                child: Column(
                   children: [
-                    IconButton(
-                      onPressed: () {
-                        setState(() {
-                          _selectedMonth = DateTime(
-                            _selectedMonth.year,
-                            _selectedMonth.month - 1,
-                          );
-                        });
-                      },
-                      icon: const Icon(
-                        Icons.chevron_left_rounded,
-                        color: Colors.white,
-                      ),
-                    ),
-                    Expanded(
-                      child: Column(
-                        children: [
-                          const Text(
-                            'Pasirinktas mėnuo',
-                            style: TextStyle(color: Colors.white70),
+                    Row(
+                      children: [
+                        IconButton(
+                          key: const ValueKey('income-previous-month'),
+                          onPressed: () {
+                            setState(() {
+                              _selectedMonth = DateTime(
+                                _selectedMonth.year,
+                                _selectedMonth.month - 1,
+                              );
+                            });
+                          },
+                          icon: const Icon(
+                            Icons.chevron_left_rounded,
+                            color: Colors.white,
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            DateFormat('yyyy MMMM').format(_selectedMonth),
-                            style: const TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
-                            ),
+                        ),
+                        Expanded(
+                          child: Column(
+                            children: [
+                              const Text(
+                                'Pasirinktas mėnuo',
+                                style: TextStyle(color: Colors.white70),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                DateFormat('yyyy MMMM').format(_selectedMonth),
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
+                        ),
+                        IconButton(
+                          key: const ValueKey('income-next-month'),
+                          onPressed: _isCurrentMonth
+                              ? null
+                              : () {
+                                  setState(() {
+                                    _selectedMonth = _clampToCurrentMonth(
+                                      DateTime(
+                                        _selectedMonth.year,
+                                        _selectedMonth.month + 1,
+                                      ),
+                                    );
+                                  });
+                                },
+                          icon: const Icon(Icons.chevron_right_rounded),
+                          color: Colors.white,
+                          disabledColor: Colors.white38,
+                        ),
+                      ],
                     ),
-                    IconButton(
-                      onPressed: () {
-                        setState(() {
-                          _selectedMonth = DateTime(
-                            _selectedMonth.year,
-                            _selectedMonth.month + 1,
-                          );
-                        });
-                      },
-                      icon: const Icon(
-                        Icons.chevron_right_rounded,
-                        color: Colors.white,
+                    if (!_isCurrentMonth) ...[
+                      const SizedBox(height: 10),
+                      TextButton.icon(
+                        key: const ValueKey('income-current-month'),
+                        onPressed: _goToCurrentMonth,
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          backgroundColor: Colors.white.withOpacity(.14),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                        ),
+                        icon: const Icon(Icons.today_rounded, size: 18),
+                        label: const Text('Grįžti'),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),
@@ -382,117 +565,55 @@ class _IncomePageState extends State<IncomePage> {
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(color: border),
                 ),
-                child: filteredIncomes.isEmpty
-                    ? Column(
-                        children: [
-                          Text(
-                            '0.00 €',
-                            style: TextStyle(
-                              color: text,
-                              fontSize: 24,
-                              fontWeight: FontWeight.w800,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _buildChartTypeButton(
+                          type: IncomeChartType.categories,
+                          label: 'Kategorijos',
+                          icon: Icons.pie_chart_rounded,
+                          textColor: text,
+                          surfaceColor: surface,
+                        ),
+                        _buildChartTypeButton(
+                          type: IncomeChartType.trend,
+                          label: 'Tendencija',
+                          icon: Icons.show_chart_rounded,
+                          textColor: text,
+                          surfaceColor: surface,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 180),
+                      child: _selectedChartType == IncomeChartType.trend
+                          ? IncomeChart(
+                              key: const ValueKey('income-trend-chart'),
+                              incomes: incomes,
+                              selectedPeriod: _selectedPeriod,
+                              onPeriodSelected: (period) {
+                                setState(() {
+                                  _selectedPeriod = period;
+                                });
+                              },
+                              textColor: text,
+                              borderColor: border,
+                              surfaceColor: surface,
+                            )
+                          : _buildCategoryChart(
+                              sortedCategories: sortedCategories,
+                              monthTotal: monthTotal,
+                              textColor: text,
+                              subtext: subtext,
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Šiame mėnesyje pajamų nėra',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: subtext),
-                          ),
-                        ],
-                      )
-                    : Column(
-                        children: [
-                          SizedBox(
-                            height: 240,
-                            child: filteredIncomes.isEmpty
-                                ? Center(
-                                    child: Text(
-                                      'Šiame mėnesyje pajamų nėra',
-                                      style: TextStyle(color: subtext),
-                                    ),
-                                  )
-                                : RepaintBoundary(
-                                    child: Stack(
-                                      alignment: Alignment.center,
-                                      children: [
-                                        PieChart(
-                                          PieChartData(
-                                            centerSpaceRadius: 62,
-                                            sectionsSpace: 4,
-                                            sections: sortedCategories.map((
-                                              entry,
-                                            ) {
-                                              final category = entry.key;
-                                              final sum = entry.value;
-                                              return PieChartSectionData(
-                                                value: sum,
-                                                color: category.color,
-                                                radius: 22,
-                                                showTitle: false,
-                                              );
-                                            }).toList(),
-                                          ),
-                                        ),
-                                        Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Text(
-                                              'Mėnesio suma',
-                                              style: TextStyle(color: subtext),
-                                            ),
-                                            const SizedBox(height: 6),
-                                            Text(
-                                              '${monthTotal.toStringAsFixed(2)} €',
-                                              style: TextStyle(
-                                                fontSize: 24,
-                                                fontWeight: FontWeight.w800,
-                                                color: text,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                          ),
-                          const SizedBox(height: 12),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: sortedCategories.map((entry) {
-                              final category = entry.key;
-                              final sum = entry.value;
-                              final percentage = (sum / monthTotal * 100)
-                                  .toStringAsFixed(1);
-                              return Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 8,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: category.color.withOpacity(.12),
-                                  borderRadius: BorderRadius.circular(999),
-                                  border: Border.all(
-                                    color: category.color.withOpacity(.35),
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(category.emoji),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      '${category.label} • ${sum.toStringAsFixed(2)} € ($percentage%)',
-                                      style: TextStyle(color: text),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                        ],
-                      ),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 16),
               Container(
@@ -581,6 +702,7 @@ class _IncomePageState extends State<IncomePage> {
               ),
               const SizedBox(height: 16),
               if (snapshot.connectionState == ConnectionState.waiting &&
+                  _latestIncomes.isEmpty &&
                   filteredIncomes.isEmpty)
                 const Center(child: CircularProgressIndicator())
               else if (filteredIncomes.isNotEmpty)

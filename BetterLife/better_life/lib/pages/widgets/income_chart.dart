@@ -199,122 +199,124 @@ class IncomeChart extends StatelessWidget {
         const SizedBox(height: 18),
         SizedBox(
           height: 260,
-          child: LineChart(
-            LineChartData(
-              minX: 0,
-              maxX: spots.isEmpty ? 0 : spots.length - 1,
-              minY: 0,
-              maxY: maxY,
-              gridData: FlGridData(
-                show: true,
-                drawVerticalLine: false,
-                horizontalInterval: yInterval,
-                /*getDrawingHorizontalLine: (value) => FlLine(
+          child: maxRaw == 0
+              ? Center(
+                  child: Text(
+                    'Nėra pajamų šiame laikotarpyje',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: AppPalette.secondaryText(context)),
+                  ),
+                )
+              : LineChart(
+                  LineChartData(
+                    minX: 0,
+                    maxX: spots.isEmpty ? 0 : spots.length - 1,
+                    minY: 0,
+                    maxY: maxY,
+                    gridData: FlGridData(
+                      show: true,
+                      drawVerticalLine: false,
+                      horizontalInterval: yInterval,
+                      /*getDrawingHorizontalLine: (value) => FlLine(
                   color: borderColor.withOpacity(0.18),
                   strokeWidth: 1,
                 ),*/
-              ),
-              titlesData: FlTitlesData(
-                leftTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    interval: yInterval,
-                    reservedSize: 40,
-                    getTitlesWidget: (value, meta) => Text(
-                      '${value.toInt()}',
-                      style: TextStyle(color: textColor, fontSize: 11),
                     ),
-                  ),
-                ),
-                rightTitles: AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                topTitles: AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    interval: 1,
-                    reservedSize: 32,
-                    getTitlesWidget: (value, meta) {
-                      final index = value.toInt();
-                      if (index < 0 || index >= buckets.length) {
-                        return const SizedBox.shrink();
-                      }
-
-                      final bool showLabel;
-                      if (selectedPeriod == IncomePeriod.week) {
-                        showLabel = true;
-                      } else if (selectedPeriod == IncomePeriod.month) {
-                        showLabel =
-                            index % 5 == 0 || index == buckets.length - 1;
-                      } else {
-                        showLabel = true;
-                      }
-                      if (!showLabel) return const SizedBox.shrink();
-
-                      return SideTitleWidget(
-                        axisSide: meta.axisSide,
-                        child: Text(
-                          _bucketLabel(buckets[index]),
-                          style: TextStyle(color: textColor, fontSize: 11),
+                    titlesData: FlTitlesData(
+                      leftTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          interval: yInterval,
+                          reservedSize: 40,
+                          getTitlesWidget: (value, meta) => Text(
+                            '${value.toInt()}',
+                            style: TextStyle(color: textColor, fontSize: 11),
+                          ),
                         ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-              lineTouchData: LineTouchData(
-                handleBuiltInTouches: true,
-                touchTooltipData: LineTouchTooltipData(
-                  getTooltipColor: (_) => surfaceColor,
-                  tooltipRoundedRadius: 12,
-                  getTooltipItems: (spots) {
-                    return spots.map((spot) {
-                      final index = spot.x.toInt();
-                      final bucket = buckets[index];
-                      return LineTooltipItem(
-                        '${_tooltipLabel(bucket)}\n${spot.y.toStringAsFixed(2)} €',
-                        TextStyle(
-                          color: textColor,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 12,
+                      ),
+                      rightTitles: AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                      topTitles: AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          interval: 1,
+                          reservedSize: 32,
+                          getTitlesWidget: (value, meta) {
+                            final index = value.toInt();
+                            if (index < 0 || index >= buckets.length) {
+                              return const SizedBox.shrink();
+                            }
+
+                            final bool showLabel;
+                            if (selectedPeriod == IncomePeriod.week) {
+                              showLabel = true;
+                            } else if (selectedPeriod == IncomePeriod.month) {
+                              showLabel =
+                                  index % 5 == 0 || index == buckets.length - 1;
+                            } else {
+                              showLabel = true;
+                            }
+                            if (!showLabel) return const SizedBox.shrink();
+
+                            return SideTitleWidget(
+                              axisSide: meta.axisSide,
+                              child: Text(
+                                _bucketLabel(buckets[index]),
+                                style: TextStyle(
+                                  color: textColor,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            );
+                          },
                         ),
-                      );
-                    }).toList();
-                  },
-                ),
-              ),
-              borderData: FlBorderData(
-                show: true,
-                border: Border.all(color: borderColor),
-              ),
-              lineBarsData: [
-                LineChartBarData(
-                  spots: spots,
-                  isCurved: true,
-                  barWidth: 2.5,
-                  dotData: FlDotData(show: false),
-                  belowBarData: BarAreaData(
-                    show: true,
-                    color: AppPalette.accentPurple.withOpacity(0.18),
+                      ),
+                    ),
+                    lineTouchData: LineTouchData(
+                      handleBuiltInTouches: true,
+                      touchTooltipData: LineTouchTooltipData(
+                        getTooltipColor: (_) => surfaceColor,
+                        tooltipRoundedRadius: 12,
+                        getTooltipItems: (spots) {
+                          return spots.map((spot) {
+                            final index = spot.x.toInt();
+                            final bucket = buckets[index];
+                            return LineTooltipItem(
+                              '${_tooltipLabel(bucket)}\n${spot.y.toStringAsFixed(2)} €',
+                              TextStyle(
+                                color: textColor,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 12,
+                              ),
+                            );
+                          }).toList();
+                        },
+                      ),
+                    ),
+                    borderData: FlBorderData(
+                      show: true,
+                      border: Border.all(color: borderColor),
+                    ),
+                    lineBarsData: [
+                      LineChartBarData(
+                        spots: spots,
+                        isCurved: true,
+                        barWidth: 2.5,
+                        dotData: FlDotData(show: false),
+                        belowBarData: BarAreaData(
+                          show: true,
+                          color: AppPalette.accentPurple.withOpacity(0.18),
+                        ),
+                        color: AppPalette.accentPurple,
+                      ),
+                    ],
                   ),
-                  color: AppPalette.accentPurple,
                 ),
-              ],
-            ),
-          ),
         ),
-        if (maxRaw == 0)
-          Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: Text(
-              'Nėra pajamų šiame laikotarpyje',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: surfaceColor.withOpacity(0.8)),
-            ),
-          ),
         const SizedBox(height: 18),
         Wrap(
           spacing: 8,

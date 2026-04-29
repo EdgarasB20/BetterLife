@@ -5,6 +5,7 @@ import 'package:better_life/pages/income_page.dart';
 import 'package:better_life/services/income_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/intl.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -110,6 +111,70 @@ void main() {
       );
     });
 
+    testWidgets('disables future month navigation at current month', (
+      tester,
+    ) async {
+      final now = DateTime.now();
+
+      await pumpIncomePage(
+        tester,
+        incomeService,
+        initialMonth: DateTime(now.year, now.month + 1),
+      );
+      incomeService.emit([]);
+      await tester.pumpAndSettle();
+
+      expect(find.text(DateFormat('yyyy MMMM').format(now)), findsOneWidget);
+      expect(find.byKey(const ValueKey('income-current-month')), findsNothing);
+
+      final nextButton = tester.widget<IconButton>(
+        find.byKey(const ValueKey('income-next-month')),
+      );
+      expect(nextButton.onPressed, isNull);
+
+      await tester.tap(find.byKey(const ValueKey('income-previous-month')));
+      await tester.pumpAndSettle();
+
+      final previousMonth = DateTime(now.year, now.month - 1);
+      expect(
+        find.text(DateFormat('yyyy MMMM').format(previousMonth)),
+        findsOneWidget,
+      );
+
+      final enabledNextButton = tester.widget<IconButton>(
+        find.byKey(const ValueKey('income-next-month')),
+      );
+      expect(enabledNextButton.onPressed, isNotNull);
+    });
+
+    testWidgets('current month button returns to current month and hides', (
+      tester,
+    ) async {
+      final now = DateTime.now();
+      final previousMonth = DateTime(now.year, now.month - 1);
+
+      await pumpIncomePage(
+        tester,
+        incomeService,
+        initialMonth: previousMonth,
+      );
+      incomeService.emit([]);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('income-current-month')), findsOneWidget);
+      expect(
+        find.text(DateFormat('yyyy MMMM').format(previousMonth)),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byKey(const ValueKey('income-current-month')));
+      await tester.pumpAndSettle();
+
+      expect(find.text(DateFormat('yyyy MMMM').format(now)), findsOneWidget);
+      expect(find.byKey(const ValueKey('income-current-month')), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('adds an income from the bottom sheet', (tester) async {
       await pumpIncomePage(tester, incomeService);
       incomeService.emit([]);
@@ -167,6 +232,7 @@ Future<void> pumpIncomePage(
   WidgetTester tester,
   FakeIncomeService incomeService, {
   String? uid = 'user-1',
+  DateTime? initialMonth,
 }) async {
   tester.view.physicalSize = const Size(1000, 1600);
   tester.view.devicePixelRatio = 1;
@@ -178,7 +244,7 @@ Future<void> pumpIncomePage(
       home: IncomePage(
         incomeService: incomeService,
         currentUserId: () => uid,
-        initialMonth: DateTime(2026, 4),
+        initialMonth: initialMonth ?? DateTime(2026, 4),
         profileAction: const SizedBox.shrink(),
       ),
     ),
