@@ -178,6 +178,21 @@ void main() {
       expect(find.text('Išlaida pridėta'), findsOneWidget);
     });
 
+    testWidgets('opens receipt scanner from expenses page', (tester) async {
+      await pumpExpensesPage(tester, expenseService);
+      expenseService.emit([]);
+      await tester.pumpAndSettle();
+
+      final scanButton = find.byKey(const ValueKey('scan-receipt-button'));
+      await tester.ensureVisible(scanButton);
+      await tester.tap(scanButton);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Čekio skenavimas'), findsOneWidget);
+      expect(find.text('Fotografuoti'), findsOneWidget);
+      expect(find.text('Iš galerijos'), findsOneWidget);
+    });
+
     testWidgets('deletes an expense after confirmation', (tester) async {
       await pumpExpensesPage(tester, expenseService);
 

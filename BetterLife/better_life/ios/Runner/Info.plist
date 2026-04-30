@@ -24,6 +24,10 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Kamera naudojama pirkinių čekiams fotografuoti.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Nuotraukų biblioteka naudojama čekio nuotraukai pasirinkti.</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>

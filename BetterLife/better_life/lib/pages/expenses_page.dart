@@ -5,7 +5,9 @@ import 'package:intl/intl.dart';
 
 import '../models/expense.dart';
 import '../services/expense_service.dart';
+import '../services/receipt_ocr_service.dart';
 import '../theme/app_palette.dart';
+import 'receipt_scanner_page.dart';
 import 'widgets/add_expense_sheet.dart';
 import 'widgets/profile_action_button.dart';
 
@@ -39,6 +41,7 @@ extension _ExpenseSortDirectionX on _ExpenseSortDirection {
 
 class ExpensesPage extends StatefulWidget {
   final ExpenseService? expenseService;
+  final ReceiptOcrService? receiptOcrService;
   final String? Function()? currentUserId;
   final DateTime? initialMonth;
   final Widget? profileAction;
@@ -46,6 +49,7 @@ class ExpensesPage extends StatefulWidget {
   const ExpensesPage({
     super.key,
     this.expenseService,
+    this.receiptOcrService,
     this.currentUserId,
     this.initialMonth,
     this.profileAction,
@@ -88,13 +92,14 @@ class _ExpensesPageState extends State<ExpensesPage> {
     _selectedMonth = widget.initialMonth ?? DateTime.now();
   }
 
-  Future<void> _openAddExpense() async {
+  Future<void> _openAddExpense({Expense? initialExpense}) async {
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) {
         return AddExpenseSheet(
+          initialExpense: initialExpense,
           onSave: (expense) async {
             await _expenseService.addExpense(_requiredUid, expense);
             if (mounted) {
@@ -106,6 +111,32 @@ class _ExpensesPageState extends State<ExpensesPage> {
         );
       },
     );
+  }
+
+  Future<void> _openReceiptScanner() async {
+    final outcome = await Navigator.push<ReceiptScannerOutcome>(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            ReceiptScannerPage(receiptOcrService: widget.receiptOcrService),
+      ),
+    );
+
+    if (!mounted || outcome == null) {
+      return;
+    }
+
+    if (outcome.openManualEntry) {
+      await _openAddExpense();
+      return;
+    }
+
+    final result = outcome.result;
+    if (result == null) {
+      return;
+    }
+
+    await _openAddExpense(initialExpense: result.toExpenseDraft());
   }
 
   Future<void> _openEditExpense(Expense expense) async {
@@ -470,6 +501,21 @@ class _ExpensesPageState extends State<ExpensesPage> {
                       ),
                     ),
                   ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  key: const ValueKey('scan-receipt-button'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppPalette.accentGreen,
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  onPressed: _openReceiptScanner,
+                  icon: const Icon(Icons.document_scanner_rounded),
+                  label: const Text('Skenuoti čekį'),
                 ),
               ),
               const SizedBox(height: 16),

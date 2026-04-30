@@ -6,11 +6,7 @@ class AddExpenseSheet extends StatefulWidget {
   final Future<void> Function(Expense expense) onSave;
   final Expense? initialExpense;
 
-  const AddExpenseSheet({
-    super.key,
-    required this.onSave,
-    this.initialExpense,
-  });
+  const AddExpenseSheet({super.key, required this.onSave, this.initialExpense});
 
   @override
   State<AddExpenseSheet> createState() => _AddExpenseSheetState();
@@ -25,7 +21,7 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
   late DateTime _date;
   bool _saving = false;
 
-  bool get _isEditing => widget.initialExpense != null;
+  bool get _isEditing => widget.initialExpense?.id.isNotEmpty == true;
 
   @override
   void initState() {
@@ -35,9 +31,7 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
     _amountController = TextEditingController(
       text: initial != null ? initial.amount.toStringAsFixed(2) : '',
     );
-    _noteController = TextEditingController(
-      text: initial?.note ?? '',
-    );
+    _noteController = TextEditingController(text: initial?.note ?? '');
     _category = initial?.category ?? ExpenseCategory.food;
     _date = initial?.date ?? DateTime.now();
   }
@@ -134,7 +128,9 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
               const SizedBox(height: 18),
               TextFormField(
                 controller: _amountController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 style: TextStyle(color: text),
                 decoration: InputDecoration(
                   labelText: 'Suma (€)',
@@ -151,8 +147,9 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                   ),
                 ),
                 validator: (value) {
-                  final parsed =
-                      double.tryParse((value ?? '').trim().replaceAll(',', '.'));
+                  final parsed = double.tryParse(
+                    (value ?? '').trim().replaceAll(',', '.'),
+                  );
                   if (parsed == null || parsed <= 0) {
                     return 'Įvesk teisingą sumą';
                   }
@@ -214,7 +211,10 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                 borderRadius: BorderRadius.circular(18),
                 child: Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 16,
+                  ),
                   decoration: BoxDecoration(
                     color: input,
                     borderRadius: BorderRadius.circular(18),
@@ -250,10 +250,14 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                           height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : Icon(_isEditing ? Icons.save_rounded : Icons.add_rounded),
-                  label: Text(_saving
-                      ? 'Saugoma...'
-                      : (_isEditing ? 'Atnaujinti' : 'Išsaugoti')),
+                      : Icon(
+                          _isEditing ? Icons.save_rounded : Icons.add_rounded,
+                        ),
+                  label: Text(
+                    _saving
+                        ? 'Saugoma...'
+                        : (_isEditing ? 'Atnaujinti' : 'Išsaugoti'),
+                  ),
                 ),
               ),
             ],
