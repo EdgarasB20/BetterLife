@@ -28,6 +28,11 @@ class CalorieService {
     if (entry.calories <= 0) {
       throw ArgumentError.value(entry.calories, 'calories', 'must be > 0');
     }
+    for (final ingredient in entry.ingredients) {
+      if (ingredient.grams <= 0) {
+        throw ArgumentError.value(ingredient.grams, 'grams', 'must be > 0');
+      }
+    }
 
     await _caloriesRef(uid).add(entry.toMap());
   }
