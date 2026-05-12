@@ -1,76 +1,12 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
+import '../models/goal.dart';
+import '../services/goal_service.dart';
 import '../theme/app_palette.dart';
 import 'widgets/profile_action_button.dart';
-
-// ─── Model ────────────────────────────────────────────────────────────────────
-
-class Goal {
-  final String id;
-  final String name;
-  final double target;
-  final double initialSaved;
-  double saved;
-  double monthlyContribution;
-  final DateTime startDate;
-  final DateTime endDate;
-  final DateTime createdAt;
-
-  /// Auto-contribution mode: if true, monthly contribution is applied
-  /// automatically based on elapsed months since [lastAutoApplied].
-  bool autoContribute;
-  DateTime? lastAutoApplied;
-
-  Goal({
-    required this.id,
-    required this.name,
-    required this.target,
-    required this.initialSaved,
-    required this.saved,
-    required this.monthlyContribution,
-    required this.startDate,
-    required this.endDate,
-    required this.createdAt,
-    this.autoContribute = false,
-    this.lastAutoApplied,
-  });
-
-  double get progress => target > 0 ? (saved / target).clamp(0.0, 1.0) : 0.0;
-  bool get isCompleted => saved >= target;
-  double get remaining => (target - saved).clamp(0, double.infinity);
-
-  double recommendedMonthly([DateTime? now]) {
-    final current = now ?? DateTime.now();
-    final months = endDate.difference(current).inDays / 30;
-    if (months <= 0) return remaining;
-    return remaining / months;
-  }
-
-  /// Returns how many whole months have elapsed since [lastAutoApplied]
-  /// (or [startDate] if never applied) up to now.
-  int pendingAutoMonths([DateTime? now]) {
-    if (monthlyContribution <= 0) return 0;
-    final current = now ?? DateTime.now();
-    final since = lastAutoApplied ?? startDate;
-    final months = current.difference(since).inDays ~/ 30;
-    return months.clamp(0, 9999);
-  }
-
-  /// Applies all pending auto months and updates [lastAutoApplied].
-  /// Returns the amount that was added.
-  double applyAutoContributions([DateTime? now]) {
-    final current = now ?? DateTime.now();
-    final months = pendingAutoMonths(current);
-    if (months <= 0) return 0;
-    final added = (monthlyContribution * months)
-        .clamp(0, remaining)
-        .toDouble();
-    saved = (saved + added).clamp(0, target);
-    lastAutoApplied = current;
-    return added;
-  }
-}
 
 // ─── Sort options ─────────────────────────────────────────────────────────────
 
@@ -141,7 +77,9 @@ class _GoalsView extends StatefulWidget {
 }
 
 class _GoalsViewState extends State<_GoalsView> {
-  final List<Goal> _goals = [];
+  final GoalService _goalService = GoalService();
+
+  String get _uid => FirebaseAuth.instance.currentUser!.uid;
 
   SortField _sortField = SortField.createdAt;
   SortOrder _sortOrder = SortOrder.desc;
@@ -154,32 +92,34 @@ class _GoalsViewState extends State<_GoalsView> {
     _applyAllAutoContributions();
   }
 
-  void _applyAllAutoContributions() {
-    bool anyChanged = false;
-    for (final g in _goals) {
-      if (g.autoContribute && !g.isCompleted) {
-        final added = g.applyAutoContributions();
-        if (added > 0) anyChanged = true;
+  Future<void> _applyAllAutoContributions() async {
+    final snap = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(_uid)
+        .collection('goals')
+        .get();
+
+    for (final doc in snap.docs) {
+      final goal = Goal.fromMap(doc.id, doc.data());
+      if (goal.autoContribute && !goal.isCompleted) {
+        final added = goal.applyAutoContributions();
+        if (added > 0) {
+          await _goalService.updateSaved(
+              _uid, goal.id, goal.saved, goal.lastAutoApplied);
+        }
       }
     }
-    if (anyChanged && mounted) setState(() {});
   }
 
   // ── CRUD helpers ─────────────────────────────────────────────────────────
 
-  void _persistGoal(Goal goal) {
-    setState(() {
-      final idx = _goals.indexWhere((g) => g.id == goal.id);
-      if (idx >= 0) {
-        _goals[idx] = goal;
-      } else {
-        _goals.add(goal);
-      }
-    });
+  Future<void> _persistGoal(Goal goal) async {
+    await _goalService.setGoal(_uid, goal);
   }
 
-  void _deleteGoal(String id) =>
-      setState(() => _goals.removeWhere((g) => g.id == id));
+  Future<void> _deleteGoal(String id) async {
+    await _goalService.deleteGoal(_uid, id);
+  }
 
   // ── Manual deposit ───────────────────────────────────────────────────────
 
@@ -384,12 +324,12 @@ class _GoalsViewState extends State<_GoalsView> {
                       ),
                       onPressed: parsed <= 0
                           ? null
-                          : () {
+                          : () async {
                               goal.saved = (goal.saved + parsed)
                                   .clamp(0, goal.target);
                               Navigator.pop(ctx);
-                              _persistGoal(goal);
-                              if (goal.isCompleted) {
+                              await _persistGoal(goal);
+                              if (goal.isCompleted && context.mounted) {
                                 ScaffoldMessenger.of(context)
                                     .showSnackBar(
                                   SnackBar(
@@ -573,18 +513,19 @@ class _GoalsViewState extends State<_GoalsView> {
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      return const Scaffold(
+        body: Center(child: Text('Pirma prisijunk')),
+      );
+    }
+
     final background = AppPalette.background(context);
     final text       = AppPalette.primaryText(context);
     final surface    = AppPalette.surface(context);
     final border     = AppPalette.border(context);
     final subtext    = AppPalette.secondaryText(context);
-
-    final sorted = _sorted(_goals);
-
-    final totalSaved  = _goals.fold<double>(0, (a, g) => a + g.saved);
-    final totalTarget = _goals.fold<double>(0, (a, g) => a + g.target);
-    final overallProgress =
-        totalTarget > 0 ? (totalSaved / totalTarget).clamp(0.0, 1.0) : 0.0;
 
     return Scaffold(
       backgroundColor: background,
@@ -609,7 +550,7 @@ class _GoalsViewState extends State<_GoalsView> {
                   top: 8, right: 8,
                   child: Container(
                     width: 8, height: 8,
-                    decoration: BoxDecoration(
+                    decoration: const BoxDecoration(
                       color: AppPalette.accentTeal,
                       shape: BoxShape.circle,
                     ),
@@ -620,107 +561,124 @@ class _GoalsViewState extends State<_GoalsView> {
           const ProfileActionButton(),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-        children: [
-          // ── Hero summary card ──────────────────────────────────────────
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(24),
-              gradient: AppPalette.heroGradient,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Viso sukaupta',
-                    style:
-                        TextStyle(color: Colors.white70, fontSize: 13)),
-                const SizedBox(height: 4),
-                Text('€${totalSaved.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                        fontSize: 34,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white)),
-                Text('iš €${totalTarget.toStringAsFixed(2)}',
-                    style:
-                        const TextStyle(color: Colors.white60)),
-                const SizedBox(height: 14),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(999),
-                  child: LinearProgressIndicator(
-                    minHeight: 6,
-                    value: overallProgress,
-                    backgroundColor: Colors.white24,
-                    color: Colors.white,
-                  ),
+      body: StreamBuilder<List<Goal>>(
+        stream: _goalService.watchGoals(_uid),
+        builder: (context, snap) {
+          if (snap.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final goals  = snap.data ?? [];
+          final sorted = _sorted(goals);
+
+          final totalSaved  = goals.fold<double>(0, (a, g) => a + g.saved);
+          final totalTarget = goals.fold<double>(0, (a, g) => a + g.target);
+          final overallProgress =
+              totalTarget > 0 ? (totalSaved / totalTarget).clamp(0.0, 1.0) : 0.0;
+
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+            children: [
+              // ── Hero summary card ────────────────────────────────────
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(24),
+                  gradient: AppPalette.heroGradient,
                 ),
-                const SizedBox(height: 6),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '${(overallProgress * 100).toStringAsFixed(0)}% bendras progresas',
-                      style: const TextStyle(
-                          color: Colors.white70, fontSize: 12),
+                    const Text('Viso sukaupta',
+                        style:
+                            TextStyle(color: Colors.white70, fontSize: 13)),
+                    const SizedBox(height: 4),
+                    Text('€${totalSaved.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                            fontSize: 34,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white)),
+                    Text('iš €${totalTarget.toStringAsFixed(2)}',
+                        style:
+                            const TextStyle(color: Colors.white60)),
+                    const SizedBox(height: 14),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(999),
+                      child: LinearProgressIndicator(
+                        minHeight: 6,
+                        value: overallProgress,
+                        backgroundColor: Colors.white24,
+                        color: Colors.white,
+                      ),
                     ),
-                    Text(
-                      '${_goals.where((g) => g.isCompleted).length}/${_goals.length} tikslų',
-                      style: const TextStyle(
-                          color: Colors.white70, fontSize: 12),
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '${(overallProgress * 100).toStringAsFixed(0)}% bendras progresas',
+                          style: const TextStyle(
+                              color: Colors.white70, fontSize: 12),
+                        ),
+                        Text(
+                          '${goals.where((g) => g.isCompleted).length}/${goals.length} tikslų',
+                          style: const TextStyle(
+                              color: Colors.white70, fontSize: 12),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
+              ),
+              const SizedBox(height: 16),
 
-          // ── Active sort indicator ────────────────────────────────────
-          if (_goals.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Row(
-                children: [
-                  Icon(_sortField.icon, size: 13, color: subtext),
-                  const SizedBox(width: 5),
-                  Text(
-                    '${_sortField.label}  ·  ${_sortOrder == SortOrder.desc ? 'Mažėjanti' : 'Didėjanti'}',
-                    style: TextStyle(fontSize: 12, color: subtext),
+              // ── Active sort indicator ────────────────────────────────
+              if (goals.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Row(
+                    children: [
+                      Icon(_sortField.icon, size: 13, color: subtext),
+                      const SizedBox(width: 5),
+                      Text(
+                        '${_sortField.label}  ·  ${_sortOrder == SortOrder.desc ? 'Mažėjanti' : 'Didėjanti'}',
+                        style: TextStyle(fontSize: 12, color: subtext),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
+                ),
 
-          // ── Empty state ──────────────────────────────────────────────
-          if (_goals.isEmpty)
-            Container(
-              padding: const EdgeInsets.all(36),
-              decoration: BoxDecoration(
-                color: surface,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: border),
-              ),
-              child: Column(
-                children: [
-                  Icon(Icons.flag_outlined, size: 40, color: subtext),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Dar nėra tikslų.\nSpausk + norėdamas pridėti.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: subtext, height: 1.5),
+              // ── Empty state ──────────────────────────────────────────
+              if (goals.isEmpty)
+                Container(
+                  padding: const EdgeInsets.all(36),
+                  decoration: BoxDecoration(
+                    color: surface,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: border),
                   ),
-                ],
-              ),
-            ),
+                  child: Column(
+                    children: [
+                      Icon(Icons.flag_outlined, size: 40, color: subtext),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Dar nėra tikslų.\nSpausk + norėdamas pridėti.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: subtext, height: 1.5),
+                      ),
+                    ],
+                  ),
+                ),
 
-          // ── Goal cards ───────────────────────────────────────────────
-          ...sorted.map((goal) => _GoalCard(
-                goal: goal,
-                onTap: () => _showEditSheet(context, goal),
-                onDeposit: () => _showDepositSheet(context, goal),
-              )),
-        ],
+              // ── Goal cards ───────────────────────────────────────────
+              ...sorted.map((goal) => _GoalCard(
+                    goal: goal,
+                    onTap: () => _showEditSheet(context, goal),
+                    onDeposit: () => _showDepositSheet(context, goal),
+                  )),
+            ],
+          );
+        },
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddSheet(context),
@@ -802,6 +760,7 @@ class _GoalsViewState extends State<_GoalsView> {
                       style: TextStyle(fontSize: 12, color: subtext)),
                   const SizedBox(height: 10),
 
+                  // Category filter chips
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
@@ -845,6 +804,7 @@ class _GoalsViewState extends State<_GoalsView> {
                   ),
                   const SizedBox(height: 10),
 
+                  // Template chips
                   Wrap(
                     spacing: 8, runSpacing: 8,
                     children: _kTemplates
@@ -1049,7 +1009,7 @@ class _GoalsViewState extends State<_GoalsView> {
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14)),
                       ),
-                      onPressed: () {
+                      onPressed: () async {
                         final name   = nameCtrl.text.trim();
                         final target = double.tryParse(targetCtrl.text) ?? 0;
                         final initial =
@@ -1088,7 +1048,7 @@ class _GoalsViewState extends State<_GoalsView> {
                         );
 
                         Navigator.pop(ctx);
-                        _persistGoal(goal);
+                        await _persistGoal(goal);
                       },
                       child: const Text('Sukurti tikslą',
                           style:
@@ -1160,9 +1120,9 @@ class _GoalsViewState extends State<_GoalsView> {
                     IconButton(
                       icon: const Icon(Icons.delete_outline,
                           color: Colors.redAccent),
-                      onPressed: () {
+                      onPressed: () async {
                         Navigator.pop(context);
-                        _deleteGoal(goal.id);
+                        await _deleteGoal(goal.id);
                       },
                     ),
                   ],
@@ -1243,7 +1203,7 @@ class _GoalsViewState extends State<_GoalsView> {
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14)),
                     ),
-                    onPressed: () {
+                    onPressed: () async {
                       goal.saved =
                           (double.tryParse(savedCtrl.text) ?? goal.saved)
                               .clamp(0, goal.target);
@@ -1252,12 +1212,11 @@ class _GoalsViewState extends State<_GoalsView> {
                               goal.monthlyContribution;
                       final wasOff = !goal.autoContribute && autoContribute;
                       goal.autoContribute = autoContribute;
-                      // reset lastAutoApplied if just enabled
                       if (wasOff) {
                         goal.lastAutoApplied = DateTime.now();
                       }
                       Navigator.pop(context);
-                      _persistGoal(goal);
+                      await _persistGoal(goal);
                     },
                     child: const Text('Išsaugoti',
                         style: TextStyle(fontWeight: FontWeight.w700)),
@@ -1341,7 +1300,6 @@ class _GoalCard extends StatelessWidget {
                       style: TextStyle(
                           fontWeight: FontWeight.w800, color: text)),
                 ),
-                // ── auto badge ──
                 if (goal.autoContribute) ...[
                   Tooltip(
                     message: 'Automatinis įnašas įjungtas',
@@ -1446,7 +1404,6 @@ class _GoalCard extends StatelessWidget {
               ),
             ],
 
-            // ── Deposit button ────────────────────────────────────────
             if (!goal.isCompleted) ...[
               const SizedBox(height: 10),
               SizedBox(
