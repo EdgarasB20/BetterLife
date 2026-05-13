@@ -3,14 +3,12 @@ import '../../theme/app_palette.dart';
 
 class AddStepsSheet extends StatefulWidget {
   final DateTime date;
-  final int initialSteps;
   final int initialGoal;
   final Future<void> Function(int steps, int goal) onSave;
 
   const AddStepsSheet({
     super.key,
     required this.date,
-    required this.initialSteps,
     required this.initialGoal,
     required this.onSave,
   });
@@ -21,16 +19,12 @@ class AddStepsSheet extends StatefulWidget {
 
 class _AddStepsSheetState extends State<AddStepsSheet> {
   final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _stepsController;
   late final TextEditingController _goalController;
   bool _saving = false;
 
   @override
   void initState() {
     super.initState();
-    _stepsController = TextEditingController(
-      text: widget.initialSteps > 0 ? widget.initialSteps.toString() : '',
-    );
     _goalController = TextEditingController(
       text: widget.initialGoal.toString(),
     );
@@ -38,7 +32,6 @@ class _AddStepsSheetState extends State<AddStepsSheet> {
 
   @override
   void dispose() {
-    _stepsController.dispose();
     _goalController.dispose();
     super.dispose();
   }
@@ -46,12 +39,11 @@ class _AddStepsSheetState extends State<AddStepsSheet> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final steps = int.tryParse(_stepsController.text.trim()) ?? 0;
     final goal = int.tryParse(_goalController.text.trim()) ?? 10000;
 
     setState(() => _saving = true);
     try {
-      await widget.onSave(steps, goal);
+      await widget.onSave(0, goal);
       if (mounted) Navigator.pop(context);
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -87,7 +79,7 @@ class _AddStepsSheetState extends State<AddStepsSheet> {
             ),
             const SizedBox(height: 18),
             Text(
-              'Žingsniai',
+              'Dienos tikslas',
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.w800,
@@ -100,28 +92,6 @@ class _AddStepsSheetState extends State<AddStepsSheet> {
               style: TextStyle(color: subtext),
             ),
             const SizedBox(height: 16),
-            TextFormField(
-              controller: _stepsController,
-              keyboardType: TextInputType.number,
-              style: TextStyle(color: text),
-              decoration: InputDecoration(
-                labelText: 'Žingsnių skaičius',
-                labelStyle: TextStyle(color: subtext),
-                prefixIcon: const Icon(Icons.directions_walk_rounded),
-                filled: true,
-                fillColor: input,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(18),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-              validator: (v) {
-                final parsed = int.tryParse((v ?? '').trim());
-                if (parsed == null || parsed < 0) return 'Įvesk teisingą skaičių';
-                return null;
-              },
-            ),
-            const SizedBox(height: 12),
             TextFormField(
               controller: _goalController,
               keyboardType: TextInputType.number,
